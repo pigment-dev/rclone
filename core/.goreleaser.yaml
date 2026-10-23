@@ -88,4 +88,5 @@ release:
     name: rclone
   name_template: "pdrclone {{ .Version }}"
   draft: false
-  prerelease: auto
+  prerelease: false
+  make_latest: "true"
