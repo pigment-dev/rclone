@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -66,53 +68,90 @@ func isDrive(remote string) bool {
 }
 
 // computers lists the Drive for desktop "Computers" roots: folders owned by
-// the user that have no parent.
+// the user that have no parent. Drive can't query "no parent" directly, so
+// this pages through the user's folders with a minimal field set (much faster
+// than a full rclone listing) and caches the answer for ten minutes.
 func (r *Rclone) computers(ctx context.Context, remote string) ([]model.Entry, error) {
-	f, err := rfs.NewFs(ctx, remote+":")
+	r.mu.Lock()
+	if c, ok := r.computerCache[remote]; ok && time.Since(c.at) < 10*time.Minute {
+		r.mu.Unlock()
+		return c.entries, nil
+	}
+	r.mu.Unlock()
+	token, err := r.accessToken(ctx, remote)
 	if err != nil {
 		return nil, err
 	}
-	cmd := f.Features().Command
-	if cmd == nil {
-		return nil, errors.New("this storage has no Computers section")
-	}
-	res, err := cmd(ctx, "query", []string{"'me' in owners and mimeType='" + driveFolderMime + "' and trashed=false and not 'root' in parents"}, nil)
-	if err != nil {
-		return nil, err
-	}
-	raw, err := json.Marshal(res)
-	if err != nil {
-		return nil, err
-	}
-	var files []struct {
-		ID           string   `json:"id"`
-		Name         string   `json:"name"`
-		Parents      []string `json:"parents"`
-		ModifiedTime string   `json:"modifiedTime"`
-	}
-	if err := json.Unmarshal(raw, &files); err != nil {
-		return nil, err
-	}
+	q := "'me' in owners and mimeType='" + driveFolderMime + "' and trashed=false and not 'root' in parents"
 	out := []model.Entry{}
-	for _, fl := range files {
-		if len(fl.Parents) != 0 || fl.ID == "" {
-			continue
+	page := ""
+	for {
+		v := url.Values{}
+		v.Set("q", q)
+		v.Set("fields", "nextPageToken,files(id,name,parents,modifiedTime)")
+		v.Set("pageSize", "1000")
+		v.Set("spaces", "drive")
+		if page != "" {
+			v.Set("pageToken", page)
 		}
-		mt, _ := time.Parse(time.RFC3339, fl.ModifiedTime)
-		name := strings.ReplaceAll(fl.Name, "/", "-")
-		out = append(out, model.Entry{Name: fl.Name, Path: computerPrefix + fl.ID + ":" + name, IsDir: true, ModTime: mt.UTC()})
+		req, err := http.NewRequestWithContext(ctx, "GET", "https://www.googleapis.com/drive/v3/files?"+v.Encode(), nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var body struct {
+			NextPageToken string `json:"nextPageToken"`
+			Files         []struct {
+				ID, Name, ModifiedTime string
+				Parents                []string
+			} `json:"files"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&body)
+		_ = resp.Body.Close()
+		if resp.StatusCode/100 != 2 {
+			return nil, fmt.Errorf("google drive: HTTP %d", resp.StatusCode)
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, fl := range body.Files {
+			if len(fl.Parents) != 0 || fl.ID == "" {
+				continue
+			}
+			mt, _ := time.Parse(time.RFC3339, fl.ModifiedTime)
+			name := strings.ReplaceAll(fl.Name, "/", "-")
+			out = append(out, model.Entry{Name: fl.Name, Path: computerPrefix + fl.ID + ":" + name, IsDir: true, ModTime: mt.UTC()})
+		}
+		if body.NextPageToken == "" {
+			break
+		}
+		page = body.NextPageToken
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	r.mu.Lock()
+	r.computerCache[remote] = computerList{at: time.Now(), entries: out}
+	r.mu.Unlock()
 	return out, nil
+}
+
+type computerList struct {
+	at      time.Time
+	entries []model.Entry
 }
 
 // List lists one directory level.
 func (r *Rclone) List(ctx context.Context, remote, p string, dirsOnly bool) ([]model.Entry, error) {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
 	if remote != "" && p == ComputersPath {
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		defer cancel()
 		return r.computers(ctx, remote)
 	}
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
 	f, err := rfs.NewFs(ctx, fsFor(remote, p))
 	if err != nil {
 		return nil, err

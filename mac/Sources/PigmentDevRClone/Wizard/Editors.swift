@@ -116,6 +116,8 @@ struct RemoteBrowser: View {
     @State private var filter = ""
     @State private var newFolder = ""
     @State private var showNewFolder = false
+    @State private var showPasteLink = false
+    @State private var pastedLink = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -134,7 +136,13 @@ struct RemoteBrowser: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.track.opacity(0.5))
                 if loading {
-                    ProgressView().controlSize(.small)
+                    VStack(spacing: 8) {
+                        ProgressView().controlSize(.small)
+                        if current == "@computers" {
+                            Text("Looking for your computers… this can take a minute on a large Drive.")
+                                .font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                        }
+                    }
                 } else if let error {
                     Text(error).font(PDFont.text(12)).foregroundStyle(Brand.red).padding()
                 } else if visible.isEmpty {
@@ -164,6 +172,13 @@ struct RemoteBrowser: View {
                 }
             }
             .frame(minHeight: 160)
+            if current == "@computers" {
+                HStack(spacing: 8) {
+                    Text("Computer not listed?").font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                    Button("Paste its folder link from drive.google.com…") { pastedLink = ""; showPasteLink = true }
+                        .buttonStyle(.link).font(PDFont.text(12, .semibold))
+                }
+            }
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
                 Text("Selected: ").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
@@ -175,11 +190,29 @@ struct RemoteBrowser: View {
             }
         }
         .task(id: accountID) { current = path; await load() }
+        .alert("Open a computer by link", isPresented: $showPasteLink) {
+            TextField("https://drive.google.com/drive/folders/…", text: $pastedLink)
+            Button("Open") {
+                if let id = Self.folderID(from: pastedLink) { current = "@computer:\(id):" + L("Computer"); Task { await load() } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { Text("In Google Drive, open Computers, open your computer, and copy the address from the browser.") }
         .alert("New folder", isPresented: $showNewFolder) {
             TextField("Folder name", text: $newFolder)
             Button("Create") { Task { await mkdir() } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("Created inside /\(Fmt.remote(current))") }
+    }
+
+    /// Folder ID from a drive.google.com folder link, or a bare ID.
+    static func folderID(from text: String) -> String? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let r = t.range(of: "/folders/") {
+            let id = t[r.upperBound...].prefix { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+            return id.isEmpty ? nil : String(id)
+        }
+        let ok = !t.isEmpty && t.count >= 10 && t.allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }
+        return ok ? t : nil
     }
 
     private var crumbs: [(name: String, path: String)] {
@@ -226,7 +259,9 @@ struct RemoteBrowser: View {
         loading = true; error = nil
         defer { loading = false }
         do {
-            let r = try await client.call("remote.list", RemoteListParams(accountId: accountID?.isEmpty == true ? nil : accountID, path: current, dirsOnly: true), as: RemoteListResult.self)
+            // Finding Google Drive "Computers" pages through all your folders; give it time on big drives.
+            let r = try await client.call("remote.list", RemoteListParams(accountId: accountID?.isEmpty == true ? nil : accountID, path: current, dirsOnly: true),
+                                          as: RemoteListResult.self, timeout: current == "@computers" ? 200 : 60)
             entries = r.entries
         } catch {
             entries = []

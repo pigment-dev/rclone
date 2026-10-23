@@ -61,13 +61,9 @@ func (r *Rclone) Identity(ctx context.Context, remote string) (*model.Identity, 
 	if !ok {
 		return nil, ErrUnsupported
 	}
-	_, _ = r.About(ctx, remote)
-	raw, _ := config.FileGetValue(remote, "token")
-	var tok struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.Unmarshal([]byte(raw), &tok); err != nil || tok.AccessToken == "" {
-		return nil, fmt.Errorf("no sign-in token for %s", remote)
+	token, err := r.accessToken(ctx, remote)
+	if err != nil {
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -79,7 +75,7 @@ func (r *Rclone) Identity(ctx context.Context, remote string) (*model.Identity, 
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -96,4 +92,18 @@ func (r *Rclone) Identity(ctx context.Context, remote string) (*model.Identity, 
 		return nil, fmt.Errorf("%s: HTTP %d", typ, resp.StatusCode)
 	}
 	return w.parse(b)
+}
+
+// accessToken returns a current OAuth access token for remote. About runs
+// first so rclone refreshes (and saves) an expired token.
+func (r *Rclone) accessToken(ctx context.Context, remote string) (string, error) {
+	_, _ = r.About(ctx, remote)
+	raw, _ := config.FileGetValue(remote, "token")
+	var tok struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal([]byte(raw), &tok); err != nil || tok.AccessToken == "" {
+		return "", fmt.Errorf("no sign-in token for %s", remote)
+	}
+	return tok.AccessToken, nil
 }
