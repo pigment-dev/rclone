@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] - 2026-10-23
+
+### Added
+
+- Status bar at the bottom of the window: sync service state and versions, the current activity with a progress bar, speed and time left.
+- Account cards show the signed-in name and email (Google Drive, OneDrive, Dropbox, Box), so several accounts of the same provider are easy to tell apart. The setup wizard shows the email too.
+- Storage usage loads automatically for new accounts.
+
+### Changed
+
+- Adding an account: Sign in and Advanced are separate tabs, the sign-in button is always at the bottom, and rarely used rclone options are folded under "All rclone options".
+- "Refresh storage" is now "Refresh account info" and also updates the signed-in user.
+- The menu bar popover closes when it opens the main window, Settings or the setup wizard.
+- The sidebar no longer has a footer; its information moved to the status bar.
+
 ## [1.0.0-beta.3] - 2026-10-23
 
 ### Added
