@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.3] - 2026-10-23
+
+### Added
+
+- Settings › Advanced › rclone: shows the built-in and command-line rclone versions, checks for new rclone releases, and updates or installs the command-line rclone with Homebrew.
+
+### Changed
+
+- rclone updated to v1.75.2.
+- Smaller sidebar icons with more room before the titles.
+- The app is English only; the language setting is removed.
+- The CLI Homebrew formula is now `pigment-dev/cli/pdrclone`.
+
 ## [1.0.0-beta.2] - 2026-10-23
 
 ### Added
