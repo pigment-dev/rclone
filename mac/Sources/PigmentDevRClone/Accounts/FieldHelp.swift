@@ -95,7 +95,7 @@ struct FlowSteps: View {
                         if i < current {
                             Image(systemName: "checkmark").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
                         } else {
-                            Text("\(i + 1)").font(PDFont.numbers(10.5)).foregroundStyle(i == current ? .white : Theme.textMuted)
+                            Text(verbatim: Fmt.digits("\(i + 1)")).font(PDFont.numbers(10.5)).foregroundStyle(i == current ? .white : Theme.textMuted)
                         }
                     }
                     .frame(width: 20, height: 20)
@@ -162,7 +162,7 @@ struct OwnClientIDGuide: View {
                 .font(PDFont.text(11.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
             ForEach(Array(steps.enumerated()), id: \.element.id) { i, step in
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("\(i + 1)").font(PDFont.numbers(11)).foregroundStyle(.white)
+                    Text(verbatim: Fmt.digits("\(i + 1)")).font(PDFont.numbers(11)).foregroundStyle(.white)
                         .frame(width: 18, height: 18).background(Circle().fill(Brand.cobalt))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(step.text).font(PDFont.text(12)).foregroundStyle(Theme.text).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)

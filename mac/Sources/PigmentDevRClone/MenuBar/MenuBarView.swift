@@ -14,7 +14,7 @@ struct MenuBarView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ProgressTrack(fraction: model.overall.percent / 100, height: 6)
                     HStack {
-                        Text(Fmt.bytes(model.overall.bytes) + " " + L("of") + " " + Fmt.bytes(model.overall.totalBytes))
+                        Text(L("%@ of %@", Fmt.bytes(model.overall.bytes), Fmt.bytes(model.overall.totalBytes)))
                         Spacer()
                         Text(Fmt.percent(model.overall.percent))
                     }

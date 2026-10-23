@@ -64,7 +64,7 @@ struct DashboardView: View {
     private var heroTitle: String {
         let s = model.menuIconState
         if !model.isConnected { return L("Reconnecting to the sync service") }
-        if s.running { return s.percent.map { Fmt.percent($0) + " " + L("done") } ?? L("Syncing") }
+        if s.running { return s.percent.map { L("%@ done", Fmt.percent($0)) } ?? L("Syncing") }
         if model.allPaused { return L("Syncing is paused") }
         if model.attentionCount > 0 { return L("A few things need you") }
         if model.jobs.isEmpty { return L("Let's sync your first folder") }
@@ -79,10 +79,10 @@ struct DashboardView: View {
         }
         let bytesToday = syncedToday.reduce(Int64(0)) { $0 + $1.bytes }
         return HStack(spacing: 14) {
-            StatTile(symbol: "arrow.triangle.2.circlepath", value: "\(model.jobs.count)", label: "Sync jobs", tint: Brand.orange)
-            StatTile(symbol: "bolt.fill", value: "\(max(model.overall.running, model.runningJobs.count))", label: "Running", tint: Brand.cobalt)
+            StatTile(symbol: "arrow.triangle.2.circlepath", value: Fmt.digits("\(model.jobs.count)"), label: "Sync jobs", tint: Brand.orange)
+            StatTile(symbol: "bolt.fill", value: Fmt.digits("\(max(model.overall.running, model.runningJobs.count))"), label: "Running", tint: Brand.cobalt)
             StatTile(symbol: "checkmark.icloud.fill", value: Fmt.bytes(bytesToday), label: "Synced today", tint: Brand.green)
-            StatTile(symbol: "bell.badge.fill", value: "\(model.attentionCount)", label: "Need attention", tint: model.attentionCount > 0 ? Brand.orange : Theme.textMuted)
+            StatTile(symbol: "bell.badge.fill", value: Fmt.digits("\(model.attentionCount)"), label: "Need attention", tint: model.attentionCount > 0 ? Brand.orange : Theme.textMuted)
                 .onTapGesture { router.show(.actions) }
         }
         .pdGlassContainer(spacing: 14)

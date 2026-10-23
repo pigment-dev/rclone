@@ -36,13 +36,21 @@ fi
 if [ -n "${BUILD_NUMBER:-}" ]; then /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"; fi
 if [ -n "${PDRCLONE_PUBLIC_KEY:-}" ]; then /usr/libexec/PlistBuddy -c "Set :PDRClonePublicEDKey $PDRCLONE_PUBLIC_KEY" "$APP/Contents/Info.plist"; fi
 
-# Fonts (Red Hat, OFL) — registered at launch with CTFontManager.
-cp Resources/Fonts/*.ttf Resources/Fonts/OFL.txt "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
+# Fonts (Red Hat for English, Vazirmatn for Persian; both OFL) — registered at launch with CTFontManager.
+cp Resources/Fonts/*.ttf Resources/Fonts/*OFL.txt "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
 
-# Strings: compile the String Catalog into .lproj/Localizable.strings.
+# Strings: compile the String Catalog into <lang>.lproj/Localizable.strings (+ .stringsdict).
+# xcstringstool only writes languages that have values, so the English keys are stored as English
+# values too; en.lproj must exist or macOS won't treat English as a localization.
 if [ -f Resources/Localizable.xcstrings ]; then
-    xcrun xcstringstool compile Resources/Localizable.xcstrings --output-directory "$APP/Contents/Resources" >/dev/null 2>&1 \
-        || echo "warning: couldn't compile Localizable.xcstrings (English keys are used as-is)"
+    if ! xcrun xcstringstool compile Resources/Localizable.xcstrings --output-directory "$APP/Contents/Resources"; then
+        echo "error: couldn't compile Localizable.xcstrings" >&2; exit 1
+    fi
+    for lang in en fa; do
+        if [ ! -f "$APP/Contents/Resources/$lang.lproj/Localizable.strings" ]; then
+            echo "error: $lang.lproj/Localizable.strings is missing from the app bundle" >&2; exit 1
+        fi
+    done
 fi
 
 # App icon: Icon Composer bundle → Assets.car + icns, else a prebuilt AppIcon.icns (made by the brand agent).

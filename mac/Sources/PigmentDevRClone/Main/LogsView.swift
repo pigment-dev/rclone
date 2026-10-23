@@ -166,7 +166,7 @@ struct LevelBadge: View {
     var body: some View {
         Text(level.rawValue.uppercased())
             .font(PDFont.mono(9.5))
-            .tracking(0.8)
+            .pdTracking(0.8)
             .foregroundStyle(color)
             .padding(.horizontal, 6).padding(.vertical, 2)
             .background(Capsule().fill(color.opacity(0.12)))

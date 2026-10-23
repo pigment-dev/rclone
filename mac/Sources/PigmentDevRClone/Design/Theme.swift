@@ -54,8 +54,10 @@ enum Theme {
 
 enum PDFont {
     nonisolated(unsafe) private(set) static var registered = false
+    /// Persian UI: Vazirmatn (OFL) for every style, since Red Hat has no Persian glyphs.
+    nonisolated(unsafe) private(set) static var persian = false
 
-    /// Registers the bundled Red Hat OFL fonts for this process. Falls back silently to the system font.
+    /// Registers the bundled Red Hat and Vazirmatn OFL fonts for this process. Falls back silently to the system font.
     static func register() {
         let candidates = [
             Bundle.main.resourceURL?.appendingPathComponent("Fonts"),
@@ -68,20 +70,26 @@ enum PDFont {
             guard !fonts.isEmpty else { continue }
             for url in fonts { CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) }
             registered = NSFont(name: "Red Hat Display", size: 12) != nil || NSFont(name: "RedHatDisplay-Regular", size: 12) != nil
+            persian = Fmt.isPersian && NSFont(name: "Vazirmatn-Regular", size: 12) != nil
             if registered { return }
         }
     }
 
+    private static func vazirmatn(_ size: CGFloat, _ weight: Font.Weight) -> Font { .custom("Vazirmatn", size: size).weight(weight) }
+
     static func display(_ size: CGFloat, _ weight: Font.Weight = .heavy) -> Font {
-        registered ? .custom("Red Hat Display", size: size).weight(weight) : .system(size: size, weight: weight, design: .default)
+        if persian { return vazirmatn(size, weight) }
+        return registered ? .custom("Red Hat Display", size: size).weight(weight) : .system(size: size, weight: weight, design: .default)
     }
 
     static func text(_ size: CGFloat = 13, _ weight: Font.Weight = .regular) -> Font {
-        registered ? .custom("Red Hat Text", size: size).weight(weight) : .system(size: size, weight: weight)
+        if persian { return vazirmatn(size, weight) }
+        return registered ? .custom("Red Hat Text", size: size).weight(weight) : .system(size: size, weight: weight)
     }
 
     static func mono(_ size: CGFloat = 10.5, _ weight: Font.Weight = .bold) -> Font {
-        registered ? .custom("Red Hat Mono", size: size).weight(weight) : .system(size: size, weight: weight, design: .monospaced)
+        if persian { return vazirmatn(size, weight).monospacedDigit() }
+        return registered ? .custom("Red Hat Mono", size: size).weight(weight) : .system(size: size, weight: weight, design: .monospaced)
     }
 
     static func numbers(_ size: CGFloat = 12, _ weight: Font.Weight = .medium) -> Font {
@@ -237,7 +245,7 @@ struct SectionLabel: View {
         Text(LocalizedStringKey(text))
             .font(PDFont.mono(10.5))
             .textCase(.uppercase)
-            .tracking(1.2)
+            .pdTracking(1.2)
             .foregroundStyle(color)
     }
 }
@@ -395,6 +403,11 @@ struct EmptyState: View {
         .padding(30)
         .frame(maxWidth: .infinity)
     }
+}
+
+extension View {
+    /// Letter spacing for Latin labels only: tracking pulls Persian letters apart and breaks joining.
+    func pdTracking(_ value: CGFloat) -> some View { tracking(Fmt.isPersian ? 0 : value) }
 }
 
 // MARK: - Color helpers

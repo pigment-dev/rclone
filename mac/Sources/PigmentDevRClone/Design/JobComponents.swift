@@ -19,7 +19,7 @@ struct JobProgressBlock: View {
                     else { Label(Fmt.speed(progress.speed), systemImage: "speedometer").labelStyle(.titleAndIcon) }
                 }
                 if let eta = progress.eta, eta > 0 {
-                    Text(Fmt.eta(eta) + " " + L("left")).foregroundStyle(Theme.textMuted)
+                    Text(L("%@ left", Fmt.eta(eta))).foregroundStyle(Theme.textMuted)
                 }
             }
             .font(PDFont.numbers(compact ? 10.5 : 11.5))
@@ -124,11 +124,11 @@ struct OverallStatusText: View {
         if running > 0 {
             var s = running == 1 ? L("Syncing 1 job") : L("Syncing %d jobs", running)
             if o.speed > 0 { s += " · " + Fmt.speed(o.speed) }
-            if let eta = o.eta, eta > 0 { s += " · " + Fmt.eta(eta) + " " + L("left") }
+            if let eta = o.eta, eta > 0 { s += " · " + L("%@ left", Fmt.eta(eta)) }
             return s
         }
         if model.allPaused {
-            if let until = model.pausedUntil { return L("Paused until") + " " + until.formatted(date: .omitted, time: .shortened) }
+            if let until = model.pausedUntil { return L("Paused until %@", until.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Fmt.locale ?? .current))) }
             return L("Paused")
         }
         if model.attentionCount > 0 { return model.attentionCount == 1 ? L("1 item needs attention") : L("%d items need attention", model.attentionCount) }

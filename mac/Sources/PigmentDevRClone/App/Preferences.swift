@@ -81,10 +81,15 @@ final class Prefs {
         if language == "system" { d.removeObject(forKey: "AppleLanguages") } else { d.set([language], forKey: "AppleLanguages") }
     }
 
+    /// Follows the localization the app is actually showing (a language change applies after relaunch,
+    /// so flipping the layout before the strings change would mix RTL layout with English text).
     var layoutDirection: LayoutDirection {
-        let lang = language == "system" ? (Locale.preferredLanguages.first ?? "en") : language
+        let lang = Bundle.main.preferredLocalizations.first ?? "en"
         return Locale.Language(identifier: lang).characterDirection == .rightToLeft ? .rightToLeft : .leftToRight
     }
+
+    /// Locale for SwiftUI formatting (dates, pickers, numbers): Persian when the UI is Persian.
+    var locale: Locale { Fmt.locale ?? .current }
 
     /// True when the current time falls inside quiet hours.
     func isQuiet(now: Date = Date()) -> Bool {

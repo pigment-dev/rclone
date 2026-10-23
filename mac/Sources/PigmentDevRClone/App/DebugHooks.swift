@@ -30,6 +30,7 @@ enum DebugHooks {
     /// The popover content in a plain window, so it can be captured with `screencapture -l`.
     private static func showMenuWindow(_ env: AppEnvironment) {
         let root = MenuBarView().environment(env.model).environment(env.prefs).environment(env.router)
+            .environment(\.layoutDirection, env.prefs.layoutDirection).environment(\.locale, env.prefs.locale)
         let host = NSHostingView(rootView: root)
         let w = NSWindow(contentRect: NSRect(x: 80, y: 80, width: 380, height: 560), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
         w.titlebarAppearsTransparent = true

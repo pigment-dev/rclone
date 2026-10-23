@@ -12,7 +12,7 @@ cask "rclone" do
     strategy :github_releases
   end
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
   depends_on arch: :arm64
 
   app "PigmentDev rClone.app"
