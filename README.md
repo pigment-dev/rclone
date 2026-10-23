@@ -32,10 +32,10 @@ Features, screenshots, documentation and FAQs are on the **[product page](https:
 ## Install
 
 ```bash
-brew install --cask pigment-dev/rclone/rclone
+brew install --cask pigment-dev/gui/rclone
 ```
 
-Or download the [DMG](https://github.com/pigment-dev/rclone/releases/latest/download/PigmentDev-rClone.dmg). The CLI and daemon alone (macOS, Linux): `brew install pigment-dev/rclone/pdrclone`. Linux and Windows archives are on the [Releases](https://github.com/pigment-dev/rclone/releases/latest) page.
+Or download the [DMG](https://github.com/pigment-dev/rclone/releases/latest/download/PigmentDev-rClone.dmg). The CLI and daemon alone (macOS, Linux): `brew install pigment-dev/gui/pdrclone`. Linux and Windows archives are on the [Releases](https://github.com/pigment-dev/rclone/releases/latest) page.
 
 The app is not signed with an Apple Developer ID yet. If macOS says it can't be opened, run:
 
