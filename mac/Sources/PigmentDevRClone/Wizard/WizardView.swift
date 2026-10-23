@@ -12,6 +12,9 @@ struct WizardView: View {
     @State private var job = Job.draft()
     @State private var index = 0
     @State private var created: Job?
+    @State private var createdCount = 0
+    /// Folders beyond the first; each becomes its own job with the same settings.
+    @State private var extraFolders: [String] = []
     @State private var busy = false
     @State private var error: String?
     @State private var showIssues = false
@@ -63,6 +66,7 @@ struct WizardView: View {
                 job.name = "Projects"
                 job.localPath = NSHomeDirectory() + "/Projects"
                 job.remotePath = "Backups/Projects"
+                if let extra = ProcessInfo.processInfo.environment["PDRCLONE_WIZARD_EXTRA"] { extraFolders = extra.split(separator: ":").map { NSHomeDirectory() + "/" + $0 } }
                 if job.accountId.isEmpty, let a = model.accounts.first { job.accountId = a.id }
                 index = i
             }
@@ -123,10 +127,13 @@ struct WizardView: View {
             HStack {
                 Button("Close") { finish(onboard: true) }.pdSecondary()
                 Button {
-                    if let c = created { Task { await model.run(c.id, dryRun: false, resync: c.direction == .twoWay) } }
+                    if createdCount > 1 {
+                        let ids = model.jobs.filter { j in ([job.localPath] + extraFolders).contains(j.localPath) && j.accountId == job.accountId }.map { ($0.id, $0.direction) }
+                        Task { for (id, dir) in ids { await model.run(id, dryRun: false, resync: dir == .twoWay) } }
+                    } else if let c = created { Task { await model.run(c.id, dryRun: false, resync: c.direction == .twoWay) } }
                     finish(onboard: true)
                     if let c = created { router.show(.jobs, job: c.id) }
-                } label: { Label(created?.direction == .twoWay ? "Run baseline now" : "Sync now", systemImage: "arrow.clockwise") }
+                } label: { Label(created?.direction == .twoWay ? (createdCount > 1 ? "Run baselines now" : "Run baseline now") : (createdCount > 1 ? "Sync all now" : "Sync now"), systemImage: "arrow.clockwise") }
                 .pdPrimary().keyboardShortcut(.defaultAction)
             }
         default:
@@ -153,10 +160,48 @@ struct WizardView: View {
         busy = true
         defer { busy = false }
         do {
-            created = try await model.createJob(job)
+            if extraFolders.isEmpty {
+                created = try await model.createJob(job)
+                createdCount = 1
+            } else {
+                var first: Job?
+                var count = 0
+                for j in jobs {
+                    let c = try await model.createJob(j)
+                    if first == nil { first = c }
+                    count += 1
+                }
+                created = first
+                createdCount = count
+            }
             withAnimation { index = steps.count - 1 }
         } catch {
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Multi-folder plan: each local folder syncs into its own subfolder of the chosen remote folder.
+    private var plan: [(local: String, remote: String)] {
+        let base = job.remotePath.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        var used: Set<String> = []
+        return ([job.localPath] + extraFolders).filter { !$0.isEmpty }.map { local in
+            var name = (local as NSString).lastPathComponent
+            if used.contains(name) {
+                let parent = ((local as NSString).deletingLastPathComponent as NSString).lastPathComponent
+                name = "\(parent)-\(name)"
+            }
+            used.insert(name)
+            return (local, base.isEmpty ? name : base + "/" + name)
+        }
+    }
+
+    private var jobs: [Job] {
+        plan.map { item in
+            var j = job
+            j.localPath = item.local
+            j.remotePath = item.remote
+            j.name = JobValidator.suggestedName(localPath: item.local, accountName: model.account(job.accountId)?.name)
+            return j
         }
     }
 
@@ -173,7 +218,7 @@ struct WizardView: View {
         case .welcome: return "Sync folders, not headaches."
         case .permissions: return "A few permissions"
         case .account: return "Where should your files go?"
-        case .local: return "Pick a folder on this Mac"
+        case .local: return "Pick folders on this Mac"
         case .remote: return "Pick a folder in the cloud"
         case .direction: return "How should it sync?"
         case .schedule: return "When should it sync?"
@@ -189,7 +234,7 @@ struct WizardView: View {
         case .welcome: return "PigmentDev rClone keeps folders on this Mac in sync with Google Drive, OneDrive, Dropbox, S3, SFTP and more — quietly, with a tiny memory footprint, and without copying your .git folders."
         case .permissions: return "All optional. You can change these later in System Settings."
         case .account: return "Choose a connected account, or add a new one."
-        case .local: return "This folder and everything inside it (minus exclusions) will sync."
+        case .local: return "Each folder and everything inside it (minus exclusions) will sync. You can add several."
         case .remote: return "Browse your storage and choose — or create — the destination folder."
         case .direction: return "Choose the direction, what happens to deletions, and how conflicts are handled."
         case .schedule: return "Combine as many triggers as you like."
@@ -207,19 +252,44 @@ struct WizardView: View {
         case .welcome: WelcomeStep()
         case .permissions: PermissionsStep()
         case .account: AccountStep(job: $job)
-        case .local: LocalFolderEditor(job: $job)
+        case .local: LocalFolderEditor(job: $job, extraFolders: $extraFolders)
         case .remote:
-            RemoteBrowser(accountID: job.accountId, path: $job.remotePath).frame(height: 360)
+            VStack(alignment: .leading, spacing: 10) {
+                RemoteBrowser(accountID: job.accountId, path: $job.remotePath).frame(height: extraFolders.isEmpty ? 360 : 300)
+                if !extraFolders.isEmpty {
+                    Label(L("Each folder goes into its own subfolder here: %@", plan.map { "/" + Fmt.remote($0.remote) }.joined(separator: ", ")), systemImage: "folder.badge.gearshape")
+                        .font(PDFont.text(12)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
         case .direction: DirectionEditor(job: $job)
         case .schedule: ScheduleEditor(triggers: $job.triggers)
         case .exclusions: ExclusionsEditor(job: $job, jobID: nil)
         case .network: NetworkEditor(job: $job)
         case .preview:
             VStack(alignment: .leading, spacing: 16) {
-                LabeledField("Job name") { TextField("Name", text: $job.name).textFieldStyle(.roundedBorder).font(PDFont.text(14)) }
-                PreviewPanel(job: job, state: $preview)
+                if extraFolders.isEmpty {
+                    LabeledField("Job name") { TextField("Name", text: $job.name).textFieldStyle(.roundedBorder).font(PDFont.text(14)) }
+                } else {
+                    LabeledField(L("%d jobs will be created", plan.count)) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(plan, id: \.local) { item in
+                                Text("\(Fmt.path(item.local))  →  /\(Fmt.remote(item.remote))").font(PDFont.mono(11.5, .medium)).foregroundStyle(Theme.textSecondary)
+                            }
+                        }
+                    }
+                    Text("The preview below is for the first folder. The others use the same settings.")
+                        .font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                }
+                PreviewPanel(job: extraFolders.isEmpty ? job : jobs.first ?? job, state: $preview)
             }
-        case .done: DoneStep(job: created ?? job)
+        case .done:
+            VStack(spacing: 12) {
+                DoneStep(job: created ?? job)
+                if createdCount > 1 {
+                    Text(L("%d jobs were created, one per folder. They appear in Jobs.", createdCount))
+                        .font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).frame(maxWidth: .infinity)
+                }
+            }
         }
     }
 }
@@ -325,7 +395,7 @@ struct DoneStep: View {
             Text(job.name).font(PDFont.display(20, .heavy)).foregroundStyle(Theme.text)
             HStack(spacing: 12) {
                 InfoTile(title: "This Mac", value: Fmt.path(job.localPath), symbol: "laptopcomputer")
-                InfoTile(title: "Cloud", value: (model.account(job.accountId)?.name ?? "") + ": /" + job.remotePath, symbol: "cloud")
+                InfoTile(title: "Cloud", value: (model.account(job.accountId)?.name ?? "") + ": /" + Fmt.remote(job.remotePath), symbol: "cloud")
             }
             InfoTile(title: "Schedule", value: ScheduleEditor.summary(job.triggers), symbol: "calendar.badge.clock")
             if job.direction == .twoWay {

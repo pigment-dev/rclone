@@ -9,46 +9,96 @@ import UniformTypeIdentifiers
 
 struct LocalFolderEditor: View {
     @Binding var job: Job
+    /// Wizard only: more folders that get their own job with the same settings.
+    var extraFolders: Binding<[String]>? = nil
+
+    private var all: [String] { ([job.localPath] + (extraFolders?.wrappedValue ?? [])).filter { !$0.isEmpty } }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionLabel("Folder on this Mac")
-            HStack(spacing: 14) {
-                Image(systemName: job.localPath.isEmpty ? "folder.badge.plus" : "folder.fill")
-                    .font(.system(size: 26, weight: .regular))
-                    .foregroundStyle(Brand.orange)
-                    .frame(width: 52, height: 52)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Brand.orange.opacity(0.12)))
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(job.localPath.isEmpty ? L("No folder chosen") : (job.localPath as NSString).lastPathComponent)
-                        .font(PDFont.text(15, .semibold)).foregroundStyle(Theme.text)
-                    Text(job.localPath.isEmpty ? L("Choose the folder you want to keep in sync.") : Fmt.path(job.localPath))
-                        .font(PDFont.text(12)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
-                }
-                Spacer()
-                Button(job.localPath.isEmpty ? "Choose folder…" : "Change…") { choose() }.pdSecondary()
+            SectionLabel(extraFolders == nil ? "Folder on this Mac" : "Folders on this Mac")
+            if all.isEmpty {
+                row(path: "", index: 0)
+            } else {
+                ForEach(Array(all.enumerated()), id: \.element) { i, path in row(path: path, index: i) }
             }
-            .padding(16)
-            .pdGlass(radius: 20)
-            .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                _ = providers.first?.loadObject(ofClass: URL.self) { url, _ in
+            if extraFolders != nil, !all.isEmpty {
+                HStack {
+                    Button { choose(adding: true) } label: { Label("Add another folder…", systemImage: "plus") }.pdSecondary(large: false)
+                    Spacer()
+                    if all.count > 1 {
+                        Text(L("%d folders · each one becomes its own job with these settings", all.count))
+                            .font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                    }
+                }
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+            for provider in providers {
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
                     guard let url, url.hasDirectoryPath else { return }
-                    DispatchQueue.main.async { job.localPath = url.path }
+                    DispatchQueue.main.async { add([url.path]) }
                 }
-                return true
             }
+            return true
         }
     }
 
-    private func choose() {
+    private func row(path: String, index: Int) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: path.isEmpty ? "folder.badge.plus" : "folder.fill")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(Brand.orange)
+                .frame(width: 52, height: 52)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Brand.orange.opacity(0.12)))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(path.isEmpty ? L("No folder chosen") : (path as NSString).lastPathComponent)
+                    .font(PDFont.text(15, .semibold)).foregroundStyle(Theme.text)
+                Text(path.isEmpty ? L("Choose the folder you want to keep in sync.") : Fmt.path(path))
+                    .font(PDFont.text(12)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
+            }
+            Spacer()
+            if path.isEmpty {
+                Button("Choose folder…") { choose(adding: false) }.pdSecondary()
+            } else if extraFolders != nil && all.count > 1 {
+                IconButton(symbol: "minus", help: L("Remove")) { remove(at: index) }
+            } else {
+                Button("Change…") { choose(adding: false) }.pdSecondary()
+            }
+        }
+        .padding(16)
+        .pdGlass(radius: 20)
+    }
+
+    private func add(_ paths: [String]) {
+        guard let extra = extraFolders else { if let p = paths.first { job.localPath = p }; return }
+        for p in paths where !all.contains(p) {
+            if job.localPath.isEmpty { job.localPath = p } else { extra.wrappedValue.append(p) }
+        }
+    }
+
+    private func remove(at index: Int) {
+        guard let extra = extraFolders else { return }
+        if index == 0 {
+            job.localPath = extra.wrappedValue.isEmpty ? "" : extra.wrappedValue.removeFirst()
+        } else if index - 1 < extra.wrappedValue.count {
+            extra.wrappedValue.remove(at: index - 1)
+        }
+    }
+
+    private func choose(adding: Bool) {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.allowsMultipleSelection = false
+        panel.allowsMultipleSelection = extraFolders != nil
         panel.prompt = L("Choose")
-        panel.message = L("Choose the folder PigmentDev rClone should keep in sync.")
-        if !job.localPath.isEmpty { panel.directoryURL = URL(fileURLWithPath: job.localPath) }
-        if panel.runModal() == .OK, let url = panel.url { job.localPath = url.path }
+        panel.message = extraFolders != nil ? L("Choose one or more folders to keep in sync. Hold ⌘ to select several.")
+                                            : L("Choose the folder PigmentDev rClone should keep in sync.")
+        if !job.localPath.isEmpty { panel.directoryURL = URL(fileURLWithPath: (job.localPath as NSString).deletingLastPathComponent) }
+        guard panel.runModal() == .OK else { return }
+        let paths = panel.urls.map(\.path)
+        if adding || extraFolders != nil { add(paths) } else if let p = paths.first { job.localPath = p }
     }
 }
 
@@ -78,6 +128,7 @@ struct RemoteBrowser: View {
                 Spacer()
                 SearchField(text: $filter, prompt: "Filter").frame(width: 150)
                 IconButton(symbol: "folder.badge.plus", help: L("New folder")) { newFolder = ""; showNewFolder = true }
+                    .disabled(current == "@computers")
                 IconButton(symbol: "arrow.clockwise", help: L("Reload")) { Task { await load() } }
             }
             ZStack {
@@ -94,7 +145,8 @@ struct RemoteBrowser: View {
                             ForEach(visible) { e in
                                 Button { open(e) } label: {
                                     HStack(spacing: 10) {
-                                        Image(systemName: e.isDir ? "folder.fill" : "doc").foregroundStyle(e.isDir ? Brand.cobalt : Theme.textMuted)
+                                        Image(systemName: e.path == "@computers" ? "laptopcomputer.and.iphone" : e.path.hasPrefix("@computer:") && !e.path.contains("/") ? "laptopcomputer" : e.isDir ? "folder.fill" : "doc")
+                                            .foregroundStyle(e.isDir ? Brand.cobalt : Theme.textMuted)
                                         Text(e.name).font(PDFont.text(13)).foregroundStyle(Theme.text).lineLimit(1)
                                         Spacer()
                                         if e.isDir { Image(systemName: "chevron.forward").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.textMuted) }
@@ -115,11 +167,11 @@ struct RemoteBrowser: View {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
                 Text("Selected: ").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
-                + Text("/" + path).font(PDFont.text(12.5, .semibold)).foregroundStyle(Theme.text)
+                + Text("/" + Fmt.remote(path)).font(PDFont.text(12.5, .semibold)).foregroundStyle(Theme.text)
                 Spacer()
-                Button("Use this folder") { path = current }
+                Button(current == path ? L("Selected") : L("Use “%@”", current.isEmpty ? L("Root") : (Fmt.remote(current) as NSString).lastPathComponent)) { path = current }
                     .pdPrimary()
-                    .disabled(current == path)
+                    .disabled(current == path || current == "@computers")
             }
         }
         .task(id: accountID) { current = path; await load() }
@@ -127,10 +179,19 @@ struct RemoteBrowser: View {
             TextField("Folder name", text: $newFolder)
             Button("Create") { Task { await mkdir() } }
             Button("Cancel", role: .cancel) {}
-        } message: { Text("Created inside /\(current)") }
+        } message: { Text("Created inside /\(Fmt.remote(current))") }
     }
 
     private var crumbs: [(name: String, path: String)] {
+        if current == "@computers" { return [(L("Computers"), "@computers")] }
+        if let c = Fmt.computer(current) {
+            let base = "@computer:\(c.id):\(c.name)"
+            var acc = base
+            return [(L("Computers"), "@computers"), (c.name, base)] + c.sub.split(separator: "/").map { part in
+                acc += "/" + part
+                return (String(part), acc)
+            }
+        }
         var acc: [String] = []
         return current.split(separator: "/").map { part in
             acc.append(String(part))
