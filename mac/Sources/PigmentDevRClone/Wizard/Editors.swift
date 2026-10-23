@@ -423,7 +423,7 @@ struct ScheduleEditor: View {
                     Picker("Day", selection: Binding(get: { triggers.weekly?.day ?? 1 }, set: { triggers.weekly?.day = $0 })) {
                         ForEach(1...7, id: \.self) { Text(LocalizedStringKey(Self.weekdays[$0 - 1])).tag($0) }
                     }
-                    .labelsHidden().frame(width: 140)
+                    .pdSelect(width: 140)
                     ClockPicker(value: Binding(get: { triggers.weekly?.time ?? "09:00" }, set: { triggers.weekly?.time = $0 }))
                 }
             }
@@ -431,7 +431,7 @@ struct ScheduleEditor: View {
                 get: { triggers.cron != nil }, set: { triggers.cron = $0 ? (triggers.cron ?? "0 */2 * * *") : nil })) {
                 HStack {
                     TextField("0 */2 * * *", text: Binding(get: { triggers.cron ?? "" }, set: { triggers.cron = $0 }))
-                        .textFieldStyle(.roundedBorder).font(PDFont.mono(12.5, .medium)).frame(maxWidth: 220)
+                        .textFieldStyle(PDFieldStyle()).font(PDFont.mono(12.5, .medium)).frame(maxWidth: 220)
                     if let c = triggers.cron {
                         Image(systemName: JobValidator.isValidCron(c) ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                             .foregroundStyle(JobValidator.isValidCron(c) ? Brand.green : Brand.red)
@@ -570,9 +570,9 @@ struct ExclusionsEditor: View {
                             Text("Exclude").tag(FilterRule.Kind.exclude)
                             Text("Include").tag(FilterRule.Kind.include)
                         }
-                        .labelsHidden().frame(width: 110)
+                        .pdSelect(width: 110)
                         TextField("Pattern, e.g. *.log", text: $job.filters.rules[i].pattern)
-                            .textFieldStyle(.roundedBorder).font(PDFont.mono(12.5, .medium))
+                            .textFieldStyle(PDFieldStyle()).font(PDFont.mono(12.5, .medium))
                         IconButton(symbol: "arrow.up", help: L("Move up")) { if i > 0 { job.filters.rules.swapAt(i, i - 1) } }.disabled(i == 0)
                         IconButton(symbol: "trash", help: L("Remove rule"), tint: Brand.red) { job.filters.rules.remove(at: i) }
                     }
@@ -585,7 +585,7 @@ struct ExclusionsEditor: View {
                     Toggle("Skip files larger than", isOn: Binding(get: { job.filters.maxSizeMB != nil }, set: { job.filters.maxSizeMB = $0 ? (job.filters.maxSizeMB ?? 2048) : nil }))
                     if job.filters.maxSizeMB != nil {
                         TextField("MB", value: Binding(get: { job.filters.maxSizeMB ?? 0 }, set: { job.filters.maxSizeMB = $0 }), format: .number)
-                            .textFieldStyle(.roundedBorder).frame(width: 80)
+                            .textFieldStyle(PDFieldStyle()).frame(width: 80)
                         Text("MB").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
                     }
                 }
@@ -605,7 +605,7 @@ struct ExclusionsEditor: View {
                 SectionLabel("Test a path")
                 HStack {
                     TextField("e.g. app/node_modules/react/index.js", text: $testPath)
-                        .textFieldStyle(.roundedBorder).font(PDFont.mono(12.5, .medium))
+                        .textFieldStyle(PDFieldStyle()).font(PDFont.mono(12.5, .medium))
                         .onSubmit { Task { await test() } }
                     Button("Test") { Task { await test() } }.pdSecondary(large: false).disabled(testPath.isEmpty)
                 }
@@ -706,7 +706,7 @@ struct LimitRow: View {
             Toggle(LocalizedStringKey(title), isOn: Binding(get: { value != nil }, set: { value = $0 ? (value ?? 1024) : nil }))
             if value != nil {
                 TextField("KB/s", value: Binding(get: { value ?? 0 }, set: { value = $0 }), format: .number)
-                    .textFieldStyle(.roundedBorder).frame(width: 90)
+                    .textFieldStyle(PDFieldStyle()).frame(width: 90)
                 Text("KB/s").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
             }
         }
@@ -734,7 +734,7 @@ struct TokenList: View {
                 }
             }
             HStack(spacing: 6) {
-                TextField(LocalizedStringKey(placeholder), text: $draft).textFieldStyle(.roundedBorder).onSubmit(add)
+                TextField(LocalizedStringKey(placeholder), text: $draft).textFieldStyle(PDFieldStyle()).onSubmit(add)
                 Button("Add", action: add).disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 if let ssid = SystemMonitor.currentSSID(), !tokens.contains(ssid) {
                     Button("Add “\(ssid)”") { tokens.append(ssid) }.buttonStyle(.link)

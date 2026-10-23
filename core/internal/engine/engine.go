@@ -70,6 +70,7 @@ type Engine interface {
 	Mkdir(ctx context.Context, remote, path string) error
 	About(ctx context.Context, remote string) (*model.Quota, error)
 	Identity(ctx context.Context, remote string) (*model.Identity, error)
+	FolderURL(ctx context.Context, remote, path string) (string, error)
 	Test(ctx context.Context, remote string) (time.Duration, error)
 	DeleteRemote(remote string)
 	SetBandwidth(l policy.Limit) error

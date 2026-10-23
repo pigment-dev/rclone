@@ -11,12 +11,14 @@ struct MenuBarView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             if model.menuIconState.running {
+                let o = model.overall
                 VStack(alignment: .leading, spacing: 6) {
-                    ProgressTrack(fraction: model.overall.percent / 100, height: 6)
+                    // Until something needs uploading the total is 0 B: show "checking", not "0 B of 0 B".
+                    ProgressTrack(fraction: o.percent / 100, height: 6, indeterminate: o.totalBytes == 0)
                     HStack {
-                        Text(Fmt.bytes(model.overall.bytes) + " " + L("of") + " " + Fmt.bytes(model.overall.totalBytes))
+                        Text(o.totalBytes == 0 ? L("Checking for changes…") : Fmt.bytes(o.bytes) + " " + L("of") + " " + Fmt.bytes(o.totalBytes))
                         Spacer()
-                        Text(Fmt.percent(model.overall.percent))
+                        if o.totalBytes > 0 { Text(Fmt.percent(o.percent)) }
                     }
                     .font(PDFont.numbers(11))
                     .foregroundStyle(Theme.textSecondary)
@@ -67,8 +69,10 @@ struct MenuBarView: View {
                 }
                 .pdGlassContainer(spacing: 8)
             }
-            .scrollIndicators(.never)
-            .frame(maxHeight: min(CGFloat(sortedJobs.count) * 92, 360))
+            .scrollIndicators(.automatic)
+            // A fixed height: the popover window doesn't give a ScrollView room on its own.
+            // Up to three and a half rows show; more scroll.
+            .frame(height: min(CGFloat(sortedJobs.count), 3.5) * 84)
         }
     }
 

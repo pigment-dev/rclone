@@ -296,4 +296,10 @@ final class FilterEvaluatorTests: XCTestCase {
         let rules = FilterEvaluator.rules(fromGitignore: "# comment\nnode_modules/\n*.log\n!important.log\n\n")
         XCTAssertEqual(rules, [FilterRule(kind: .exclude, pattern: "node_modules/**"), FilterRule(kind: .exclude, pattern: "*.log"), FilterRule(kind: .include, pattern: "important.log")])
     }
+
+    func testDescribeSkipRule() {
+        XCTAssertEqual(FilterPreset.describe(rule: "- Icon\\r (preset osjunk)"), "OS junk · custom folder icon (hidden file)")
+        XCTAssertEqual(FilterPreset.describe(rule: "- .git/** (preset vcs)"), "Version control · Git repository")
+        XCTAssertEqual(FilterPreset.describe(rule: "- *.log"), "*.log")
+    }
 }

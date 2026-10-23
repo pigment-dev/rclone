@@ -168,6 +168,11 @@ func (e *Engine) Identity(_ context.Context, remote string) (*model.Identity, er
 	return nil, engine.ErrUnsupported
 }
 
+// FolderURL has no web page in demo mode.
+func (e *Engine) FolderURL(context.Context, string, string) (string, error) {
+	return "", engine.ErrUnsupported
+}
+
 // DeleteRemote is a no-op.
 func (e *Engine) DeleteRemote(string) {}
 

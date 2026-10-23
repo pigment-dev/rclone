@@ -232,7 +232,7 @@ struct AddAccountFlow: View {
                             }
                         }
                     }
-                    LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(.roundedBorder) }
+                    LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(PDFieldStyle()) }
                     ForEach(visibleFields.filter { !$0.advanced }) { field in
                         FieldInput(field: field, providerID: p.id, value: binding(field))
                     }
@@ -446,7 +446,7 @@ struct FieldInput: View {
             }
             switch field.type {
             case .password:
-                SecureField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder)
+                SecureField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(PDFieldStyle())
             case .bool:
                 Toggle(isOn: Binding(get: { value == "true" }, set: { value = $0 ? "true" : "false" })) { EmptyView() }
                     .toggleStyle(.switch).tint(Brand.orange).labelsHidden()
@@ -455,12 +455,12 @@ struct FieldInput: View {
                     if !field.required { Text("Default").tag("") }
                     ForEach(field.options, id: \.self) { Text($0.label.isEmpty ? $0.value : $0.label).tag($0.value) }
                 }
-                .labelsHidden()
+                .pdSelect()
             case .int:
-                TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(PDFieldStyle()).frame(maxWidth: 160)
             case .string:
                 HStack(spacing: 6) {
-                    TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder)
+                    TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(PDFieldStyle())
                     if !field.options.isEmpty {
                         Menu {
                             ForEach(field.options, id: \.self) { o in

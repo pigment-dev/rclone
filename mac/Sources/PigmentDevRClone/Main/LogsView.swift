@@ -64,16 +64,16 @@ struct LogsView: View {
             Picker("Level", selection: $level) {
                 ForEach(LogLine.Level.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue.capitalized + "+")).tag($0) }
             }
-            .frame(width: 120)
+            .pdSelect(width: 120)
             Picker("Job", selection: $jobID) {
                 Text("All jobs").tag("")
                 ForEach(model.jobs) { Text($0.name).tag($0.id) }
             }
-            .frame(width: 180)
+            .pdSelect(width: 180)
             Picker("Range", selection: $range) {
                 ForEach(Range.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
             }
-            .frame(width: 150)
+            .pdSelect(width: 150)
             Spacer()
             Toggle(isOn: $live) { Label("Live", systemImage: "dot.radiowaves.left.and.right") }
                 .toggleStyle(.button)
@@ -202,8 +202,9 @@ struct ExplainPopover: View {
             Picker("Job", selection: $jobID) {
                 ForEach(model.jobs) { Text($0.name).tag($0.id) }
             }
+            .pdSelect()
             HStack {
-                TextField("Path or file name inside the job's folder", text: $path).textFieldStyle(.roundedBorder).onSubmit { Task { await ask() } }
+                TextField("Path or file name inside the job's folder", text: $path).textFieldStyle(PDFieldStyle()).onSubmit { Task { await ask() } }
                 Button("Choose…") {
                     let panel = NSOpenPanel()
                     panel.canChooseFiles = true; panel.canChooseDirectories = true; panel.showsHiddenFiles = true

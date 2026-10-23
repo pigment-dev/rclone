@@ -269,7 +269,7 @@ struct WizardView: View {
         case .preview:
             VStack(alignment: .leading, spacing: 16) {
                 if extraFolders.isEmpty {
-                    LabeledField("Job name") { TextField("Name", text: $job.name).textFieldStyle(.roundedBorder).font(PDFont.text(14)) }
+                    LabeledField("Job name") { TextField("Name", text: $job.name).textFieldStyle(PDFieldStyle()).font(PDFont.text(14)) }
                 } else {
                     LabeledField(L("%d jobs will be created", plan.count)) {
                         VStack(alignment: .leading, spacing: 4) {
@@ -546,10 +546,10 @@ struct PreviewPanel: View {
                     Text(row.0).font(PDFont.mono(11.5, .regular)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
                     Spacer()
                     if let rule = row.1 {
-                        Text(rule).font(PDFont.mono(10.5, .medium)).foregroundStyle(Brand.orange)
+                        Text(FilterPreset.describe(rule: rule)).font(PDFont.text(11, .medium)).foregroundStyle(Brand.orange)
                             .padding(.horizontal, 7).padding(.vertical, 2)
                             .background(Capsule().fill(Brand.orange.opacity(0.1)))
-                            .help(L("Skipped because it matches this rule"))
+                            .help(L("Skipped because it matches this rule: ") + rule)
                     }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 6)

@@ -50,6 +50,20 @@ func (d *Daemon) registerMiscHandlers() {
 		}
 		return map[string]any{"path": p.Path, "entries": entries}, nil
 	})
+	method(d, "remote.url", func(ctx context.Context, _ *api.Conn, p struct {
+		AccountID *string `json:"accountId"`
+		Path      string  `json:"path"`
+	}) (any, error) {
+		remote, err := d.remoteFor(p.AccountID)
+		if err != nil {
+			return nil, err
+		}
+		u, err := d.eng.FolderURL(ctx, remote, p.Path)
+		if err != nil {
+			return nil, providerErr(err)
+		}
+		return map[string]any{"url": u}, nil
+	})
 	method(d, "remote.mkdir", func(ctx context.Context, _ *api.Conn, p struct {
 		AccountID *string `json:"accountId"`
 		Path      string  `json:"path"`

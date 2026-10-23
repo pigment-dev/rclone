@@ -69,8 +69,7 @@ struct SearchField: View {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.textMuted) }.buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .pdGlass(in: Capsule())
+        .modifier(PDInputBox())
     }
 }
 
@@ -88,10 +87,17 @@ struct JobDetailView: View {
     @State private var confirmDelete = false
     @State private var confirmResync = false
     @State private var section: DetailSection = .overview
+    @State private var editing = false
+    @State private var editTab: EditSection = .folders
 
     enum DetailSection: String, CaseIterable, Identifiable {
-        case overview = "Overview", folders = "Folders", direction = "Direction", schedule = "Schedule",
-             exclusions = "Exclusions", network = "Network", history = "History"
+        case overview = "Overview", history = "History"
+        var id: String { rawValue }
+    }
+
+    /// Settings live in the Edit window, not on the page.
+    enum EditSection: String, CaseIterable, Identifiable {
+        case folders = "Folders", direction = "Direction", schedule = "Schedule", exclusions = "Exclusions", network = "Network"
         var id: String { rawValue }
     }
 
@@ -103,7 +109,7 @@ struct JobDetailView: View {
             GlassTabs(items: DetailSection.allCases, selection: $section, title: { $0.rawValue })
             sectionContent(job)
         }
-        .safeAreaInset(edge: .bottom) { if isDirty { saveBar } }
+        .sheet(isPresented: $editing) { editSheet }
         .onAppear { load(job) }
         .onChange(of: jobID) { _, _ in loadedID = nil; load(model.job(jobID) ?? Job()) }
         .task(id: jobID) { await loadHistory() }
@@ -176,6 +182,7 @@ struct JobDetailView: View {
                     Button { Task { await model.pause(jobID) } } label: { Label("Pause", systemImage: "pause") }.pdSecondary()
                 }
                 Spacer()
+                Button { openEditor(.folders) } label: { Label("Edit", systemImage: "slider.horizontal.3") }.pdSecondary()
                 Menu {
                     Button("Show folder in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: job.localPath) }
                     Button("Open in the cloud") { openRemote(job, account) }
@@ -200,6 +207,22 @@ struct JobDetailView: View {
     }
 
     private func openRemote(_ job: Job, _ account: Account?) {
+        // Ask the sync service for the folder's own web page (Google Drive needs the folder ID).
+        if let client = model.client, ["drive", "dropbox"].contains(account?.provider ?? "") {
+            Task {
+                if let r = try? await client.call("remote.url", MkdirParams(accountId: job.accountId, path: job.remotePath), as: URLResult.self, timeout: 40),
+                   let u = URL(string: r.url), !r.url.isEmpty {
+                    NSWorkspace.shared.open(u)
+                } else {
+                    openRemoteFallback(job, account)
+                }
+            }
+            return
+        }
+        openRemoteFallback(job, account)
+    }
+
+    private func openRemoteFallback(_ job: Job, _ account: Account?) {
         let path = job.remotePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
         let url: String?
         switch account?.provider {
@@ -257,39 +280,97 @@ struct JobDetailView: View {
     @ViewBuilder private func sectionContent(_ job: Job) -> some View {
         switch section {
         case .overview: overview(job)
-        case .folders:
-            GlassCard {
-                VStack(alignment: .leading, spacing: 18) {
-                    LabeledField("Name") { TextField("Job name", text: $draft.name).textFieldStyle(.roundedBorder) }
-                    LocalFolderEditor(job: $draft)
-                    Divider().opacity(0.4)
-                    SectionLabel("Cloud folder")
-                    RemoteBrowser(accountID: draft.accountId, path: $draft.remotePath).frame(height: 300)
-                }
-            }
-        case .direction: GlassCard { DirectionEditor(job: $draft) }
-        case .schedule: GlassCard { ScheduleEditor(triggers: $draft.triggers) }
-        case .exclusions: GlassCard { ExclusionsEditor(job: $draft, jobID: jobID) }
-        case .network: GlassCard { NetworkEditor(job: $draft) }
         case .history: historyView
         }
+    }
+
+    private func openEditor(_ tab: EditSection) {
+        if let j = model.job(jobID) { draft = j }
+        editTab = tab
+        editing = true
+    }
+
+    @ViewBuilder private func editContent(_ tab: EditSection) -> some View {
+        switch tab {
+        case .folders:
+            VStack(alignment: .leading, spacing: 18) {
+                LabeledField("Name") { TextField("Job name", text: $draft.name).textFieldStyle(PDFieldStyle()) }
+                LocalFolderEditor(job: $draft)
+                Divider().opacity(0.4)
+                SectionLabel("Cloud folder")
+                RemoteBrowser(accountID: draft.accountId, path: $draft.remotePath).frame(height: 300)
+            }
+        case .direction: DirectionEditor(job: $draft)
+        case .schedule: ScheduleEditor(triggers: $draft.triggers)
+        case .exclusions: ExclusionsEditor(job: $draft, jobID: jobID)
+        case .network: NetworkEditor(job: $draft)
+        }
+    }
+
+    private var editSheet: some View {
+        let issues = JobValidator.allIssues(draft)
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(L("Edit “%@”", draft.name)).font(PDFont.display(22, .black)).foregroundStyle(Theme.text).lineLimit(1)
+                Spacer()
+            }
+            GlassTabs(items: EditSection.allCases, selection: $editTab, title: { $0.rawValue })
+            ScrollView {
+                editContent(editTab)
+                    .padding(18)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .pdGlass(radius: 20)
+            }
+            HStack(spacing: 12) {
+                if let issue = issues.first {
+                    Label(issue.message, systemImage: "exclamationmark.triangle.fill").font(PDFont.text(12.5)).foregroundStyle(Brand.red)
+                } else if isDirty {
+                    Text("You have unsaved changes").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+                Button("Cancel") {
+                    if let j = model.job(jobID) { draft = j }
+                    editing = false
+                }
+                .pdSecondary(large: false)
+                .keyboardShortcut(.cancelAction)
+                Button(saving ? "Saving…" : "Save") {
+                    saving = true
+                    Task {
+                        do { draft = try await model.updateJob(draft); editing = false } catch { model.report(error) }
+                        saving = false
+                    }
+                }
+                .pdPrimary()
+                .keyboardShortcut(.defaultAction)
+                .disabled(saving || !issues.isEmpty || !isDirty)
+            }
+        }
+        .padding(24)
+        .frame(width: 820, height: 660)
+        .background(Backdrop())
+        .environment(model)
     }
 
     private func overview(_ job: Job) -> some View {
         let account = model.account(job.accountId)
         return VStack(spacing: 14) {
             HStack(spacing: 14) {
-                InfoTile(title: "This Mac", value: Fmt.path(job.localPath), symbol: "laptopcomputer")
-                InfoTile(title: "Cloud", value: (account?.name ?? "—") + ": /" + Fmt.remote(job.remotePath), symbol: "cloud")
+                InfoTile(title: "This Mac", value: Fmt.path(job.localPath), symbol: "laptopcomputer", actionHelp: L("Show in Finder")) {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: job.localPath)])
+                }
+                InfoTile(title: "Cloud", value: (account?.name ?? "—") + ": /" + Fmt.remote(job.remotePath), symbol: "cloud", actionHelp: L("Open in the browser")) {
+                    openRemote(job, account)
+                }
             }
             HStack(spacing: 14) {
-                InfoTile(title: "Direction", value: job.direction.title, symbol: job.direction.symbol)
-                InfoTile(title: "Deletions", value: job.deletePolicy.title, symbol: "trash")
-                InfoTile(title: "Conflicts", value: job.conflictPolicy.title, symbol: "arrow.triangle.branch")
+                InfoTile(title: "Direction", value: job.direction.title, symbol: job.direction.symbol, actionHelp: L("Edit"), actionSymbol: "pencil") { openEditor(.direction) }
+                InfoTile(title: "Deletions", value: job.deletePolicy.title, symbol: "trash", actionHelp: L("Edit"), actionSymbol: "pencil") { openEditor(.direction) }
+                InfoTile(title: "Conflicts", value: job.conflictPolicy.title, symbol: "arrow.triangle.branch", actionHelp: L("Edit"), actionSymbol: "pencil") { openEditor(.direction) }
             }
             HStack(spacing: 14) {
-                InfoTile(title: "Schedule", value: ScheduleEditor.summary(job.triggers), symbol: "calendar.badge.clock")
-                InfoTile(title: "Excluded", value: job.filters.presets.compactMap { FilterPreset.named($0)?.title }.joined(separator: ", ").ifEmpty("Nothing"), symbol: "line.3.horizontal.decrease.circle")
+                InfoTile(title: "Schedule", value: ScheduleEditor.summary(job.triggers), symbol: "calendar.badge.clock", actionHelp: L("Edit"), actionSymbol: "pencil") { openEditor(.schedule) }
+                InfoTile(title: "Excluded", value: job.filters.presets.compactMap { FilterPreset.named($0)?.title }.joined(separator: ", ").ifEmpty("Nothing"), symbol: "line.3.horizontal.decrease.circle", actionHelp: L("Edit"), actionSymbol: "pencil") { openEditor(.exclusions) }
             }
             if let last = job.status?.lastRun {
                 GlassCard {
@@ -320,30 +401,6 @@ struct JobDetailView: View {
         }
     }
 
-    private var saveBar: some View {
-        HStack(spacing: 12) {
-            let issues = JobValidator.allIssues(draft)
-            Image(systemName: issues.isEmpty ? "pencil.circle.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(issues.isEmpty ? Brand.orange : Brand.red)
-            Text(issues.first?.message ?? L("You have unsaved changes"))
-                .font(PDFont.text(13, .medium)).foregroundStyle(Theme.text)
-            Spacer()
-            Button("Revert") { if let j = model.job(jobID) { draft = j } }.pdSecondary(large: false)
-            Button(saving ? "Saving…" : "Save changes") {
-                saving = true
-                Task {
-                    do { draft = try await model.updateJob(draft) } catch { model.report(error) }
-                    saving = false
-                }
-            }
-            .pdPrimary()
-            .disabled(saving || !issues.isEmpty)
-        }
-        .padding(.horizontal, 18).padding(.vertical, 12)
-        .pdGlass(radius: 20)
-        .padding(.horizontal, 32).padding(.bottom, 16)
-        .frame(maxWidth: 1100)
-    }
 }
 
 struct RunRow: View {
@@ -376,17 +433,38 @@ struct InfoTile: View {
     var title: String
     var value: String
     var symbol: String
+    var actionHelp: String? = nil
+    var actionSymbol = "arrow.up.forward.square"
+    var action: (() -> Void)? = nil
+    @State private var hover = false
+
     var body: some View {
+        if let action {
+            Button(action: action) { content(clickable: true) }
+                .buttonStyle(.plain)
+                .onHover { hover = $0; if $0 { NSCursor.pointingHand.push() } else { NSCursor.pop() } }
+                .help(actionHelp ?? "")
+        } else {
+            content(clickable: false)
+        }
+    }
+
+    private func content(clickable: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(Brand.orange).frame(width: 20)
             VStack(alignment: .leading, spacing: 4) {
                 SectionLabel(title)
-                Text(value).font(PDFont.text(13, .medium)).foregroundStyle(Theme.text).lineLimit(2).truncationMode(.middle)
+                Text(value).font(PDFont.text(13, .medium)).foregroundStyle(clickable && hover ? Brand.orange : Theme.text).lineLimit(2).truncationMode(.middle)
             }
             Spacer(minLength: 0)
+            if clickable {
+                Image(systemName: actionSymbol).font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(hover ? Brand.orange : Theme.textMuted)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
         .pdGlass(radius: 20)
     }
 }

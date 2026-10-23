@@ -8,10 +8,11 @@ struct MainWindow: View {
     @Environment(Prefs.self) private var prefs
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
+    @State private var columns: NavigationSplitViewVisibility = .all
 
     var body: some View {
         @Bindable var router = router
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             sidebar
                 .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 280)
         } detail: {
@@ -25,6 +26,7 @@ struct MainWindow: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) { StatusBar() }
+            .navigationSplitViewColumnWidth(min: 640, ideal: 900)
         }
         .frame(minWidth: 920, minHeight: 620)
         .tint(Brand.orange)
@@ -116,22 +118,30 @@ struct StatusBar: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        // Never wider than the window: the versions drop out first, then texts truncate.
+        ViewThatFits(in: .horizontal) {
+            row(showVersions: true)
+            row(showVersions: false)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 32)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        .background(.bar)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.hairline.opacity(0.6)).frame(height: 0.5) }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func row(showVersions: Bool) -> some View {
         HStack(spacing: 12) {
             Circle().fill(serviceColor).frame(width: 7, height: 7)
-            Text(serviceTitle).font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.textSecondary).fixedSize()
-            if let h = model.hello, model.isConnected {
+            Text(serviceTitle).font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.textSecondary).lineLimit(1).layoutPriority(2)
+            if showVersions, let h = model.hello, model.isConnected {
                 Text("pdrcloned \(h.daemonVersion) · rclone \(h.rcloneVersion)")
-                    .font(PDFont.mono(10, .medium)).foregroundStyle(Theme.textMuted).fixedSize()
+                    .font(PDFont.mono(10, .medium)).foregroundStyle(Theme.textMuted).lineLimit(1).fixedSize()
             }
             Divider().frame(height: 14)
             activity
         }
-        .padding(.horizontal, 16)
-        .frame(height: 32)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.bar)
-        .overlay(alignment: .top) { Rectangle().fill(Theme.hairline.opacity(0.6)).frame(height: 0.5) }
-        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder private var activity: some View {
@@ -142,13 +152,13 @@ struct StatusBar: View {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.orange)
                 Text(running.count > 1 ? L("Syncing %d jobs", running.count) : L("Syncing %@", job.name))
-                    .font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.text).lineLimit(1).fixedSize()
+                    .font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.text).lineLimit(1).layoutPriority(1)
                 if let file {
                     Text(file).font(PDFont.mono(10, .regular)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
                 ProgressTrack(fraction: o.percent / 100, height: 5, indeterminate: o.totalBytes == 0)
-                    .frame(width: 160)
+                    .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
                 Text([Fmt.percent(o.percent), Fmt.speed(o.speed), o.eta.map { Fmt.eta($0) + " " + L("left") }].compactMap { $0 }.joined(separator: " · "))
                     .font(PDFont.numbers(11)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()
             }

@@ -461,3 +461,48 @@ struct GlassTabs<T: Hashable & Identifiable>: View {
         .pdGlass(in: Capsule())
     }
 }
+
+
+// MARK: - Inputs (one shape for text fields, search fields and dropdowns)
+
+enum PDInput {
+    static let radius: CGFloat = 10
+    static let height: CGFloat = 32
+}
+
+/// Rounded field box shared by every input.
+struct PDInputBox: ViewModifier {
+    var focused = false
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 10)
+            .frame(minHeight: PDInput.height)
+            .background(RoundedRectangle(cornerRadius: PDInput.radius, style: .continuous).fill(Theme.track))
+            .overlay(RoundedRectangle(cornerRadius: PDInput.radius, style: .continuous)
+                .strokeBorder(focused ? Brand.orange.opacity(0.7) : Theme.hairline.opacity(0.8), lineWidth: focused ? 1.2 : 0.75))
+    }
+}
+
+struct PDFieldStyle: TextFieldStyle {
+    @FocusState private var focused: Bool
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .textFieldStyle(.plain)
+            .font(PDFont.text(13))
+            .focused($focused)
+            .modifier(PDInputBox(focused: focused))
+    }
+}
+
+extension View {
+    /// Dropdown in the shared input shape: apply to a menu-style Picker.
+    func pdSelect(width: CGFloat? = nil) -> some View {
+        self.pickerStyle(.menu)
+            .labelsHidden()
+            .buttonStyle(.borderless)
+            .tint(Theme.text)
+            .font(PDFont.text(13))
+            .frame(width: width.map { $0 - 20 }, alignment: .leading)
+            .modifier(PDInputBox())
+    }
+}

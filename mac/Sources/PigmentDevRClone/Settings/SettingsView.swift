@@ -216,9 +216,9 @@ struct SyncDefaultsSettings: View {
         VStack(alignment: .leading, spacing: 18) {
             DisconnectedNote()
             SettingsGroup(title: "New jobs start with", footer: "Existing jobs keep their own settings.") {
-                Picker("Direction", selection: $settings.defaults.direction) { ForEach(SyncDirection.allCases, id: \.self) { Text($0.title).tag($0) } }
-                Picker("Deletions", selection: $settings.defaults.deletePolicy) { ForEach(DeletePolicy.allCases, id: \.self) { Text($0.title).tag($0) } }
-                Picker("Conflicts", selection: $settings.defaults.conflictPolicy) { ForEach(ConflictPolicy.allCases, id: \.self) { Text($0.title).tag($0) } }
+                LabeledContent("Direction") { Picker("Direction", selection: $settings.defaults.direction) { ForEach(SyncDirection.allCases, id: \.self) { Text($0.title).tag($0) } }.pdSelect(width: 220) }
+                LabeledContent("Deletions") { Picker("Deletions", selection: $settings.defaults.deletePolicy) { ForEach(DeletePolicy.allCases, id: \.self) { Text($0.title).tag($0) } }.pdSelect(width: 220) }
+                LabeledContent("Conflicts") { Picker("Conflicts", selection: $settings.defaults.conflictPolicy) { ForEach(ConflictPolicy.allCases, id: \.self) { Text($0.title).tag($0) } }.pdSelect(width: 220) }
             }
             SettingsGroup(title: "Timing & safety") {
                 Stepper(value: $settings.defaults.debounceSec, in: 2...600) { Text("Wait \(settings.defaults.debounceSec) s after a change before syncing") }
@@ -276,7 +276,7 @@ struct FilterSettings: View {
                     }
                 }
                 HStack {
-                    TextField("Pattern", text: $newRule).textFieldStyle(.roundedBorder).font(PDFont.mono(12, .medium))
+                    TextField("Pattern", text: $newRule).textFieldStyle(PDFieldStyle()).font(PDFont.mono(12, .medium))
                     Button("Add") { if !newRule.isEmpty { prefs.globalRules.append(newRule); newRule = "" } }
                 }
             }
@@ -320,7 +320,7 @@ struct NetworkSettings: View {
             }
             SettingsGroup(title: "Proxy", footer: "HTTP(S) proxy for all providers, e.g. http://proxy.local:8080. Leave empty to use none.") {
                 TextField("http://host:port", text: $proxy)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(PDFieldStyle())
                     .onSubmit { settings.network.proxy = proxy.isEmpty ? nil : proxy }
                     .onChange(of: proxy) { _, v in settings.network.proxy = v.isEmpty ? nil : v }
             }

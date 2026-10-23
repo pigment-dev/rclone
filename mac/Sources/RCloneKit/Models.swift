@@ -252,6 +252,7 @@ public struct AccountUser: Codable, Equatable, Sendable {
     public init(name: String = "", email: String = "") { self.name = name; self.email = email }
 }
 public struct AccountResult: Codable, Sendable { public var account: Account? }
+public struct URLResult: Codable, Sendable { @Default<EmptyString> public var url: String = "" }
 
 // MARK: - Remote browsing
 
@@ -844,6 +845,27 @@ public struct FilterPreset: Identifiable, Equatable, Sendable {
     ]
 
     public static func named(_ id: String) -> FilterPreset? { all.first { $0.id == id } }
+
+    /// Turns a raw rule such as "- Icon\\r (preset osjunk)" into "OS junk · custom folder icon".
+    public static func describe(rule: String) -> String {
+        var pattern = rule.trimmingCharacters(in: .whitespaces)
+        var group: String?
+        if let open = pattern.range(of: " (", options: .backwards), pattern.hasSuffix(")") {
+            let inside = pattern[open.upperBound..<pattern.index(before: pattern.endIndex)]
+            let id = inside.hasPrefix("preset ") ? String(inside.dropFirst(7)) : String(inside)
+            group = named(id)?.title ?? (id == "custom" ? "Your rule" : id)
+            pattern = String(pattern[..<open.lowerBound])
+        }
+        if pattern.hasPrefix("- ") || pattern.hasPrefix("+ ") { pattern = String(pattern.dropFirst(2)) }
+        let known: [String: String] = [
+            ".DS_Store": "Finder view settings", "Icon\\r": "custom folder icon (hidden file)", "._*": "macOS extra file data",
+            "Thumbs.db": "Windows thumbnails", "desktop.ini": "Windows folder settings", ".git/**": "Git repository",
+            ".svn/**": "Subversion data", "node_modules/**": "npm packages", ".vscode/**": "VS Code settings",
+            ".claude/**": "Claude Code settings", ".idea/**": "JetBrains settings", "vendor/**": "Composer/Go packages",
+        ]
+        let what = known[pattern] ?? pattern
+        return [group, what].compactMap { $0 }.joined(separator: " · ")
+    }
 }
 
 // MARK: - Additions (daemon v1 extras)

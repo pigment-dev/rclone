@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-10-23
+
+### Fixed
+
+- The cloud folder picker now syncs into the folder you open. Before, a job could silently point at the top level of the storage if "Use" wasn't clicked, and a mirror job would then plan to delete everything else there.
+- Google Drive "Computers" (e.g. "My Mac") load reliably: they are found with a much faster search that runs in the background and is cached, and a computer can be opened from its drive.google.com link.
+- After an update, an outdated sync service is restarted automatically.
+- The window content no longer spills past the window edge; the sidebar stays visible.
+- The menu bar popover shows up to three and a half jobs and says "Checking for changes…" instead of "0 B of 0 B".
+
+### Added
+
+- Preview: an "If you create this job" summary that explains what will be uploaded, deleted or archived and what happens on later syncs, plus a warning when the top level of the storage is selected. Creating a job that deletes or archives files needs a confirmation.
+- Deletion settings explain what Mirror, Archive and Never mean for the chosen direction.
+- Skipped files show the reason in plain words (e.g. "OS junk · custom folder icon").
+- Job page: click "This Mac" to show it in Finder and "Cloud" to open the folder in the browser (Google Drive opens the exact folder).
+
+### Changed
+
+- Job settings moved into an Edit window; the job page shows Overview and History. Overview tiles open the matching settings.
+- Text fields, search fields and dropdowns share one shape.
+
 ## [1.0.0-beta.4] - 2026-10-23
 
 ### Added

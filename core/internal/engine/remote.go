@@ -182,6 +182,56 @@ type computerList struct {
 	entries []model.Entry
 }
 
+// FolderURL returns the provider's web page for a folder, when it has one.
+func (r *Rclone) FolderURL(ctx context.Context, remote, p string) (string, error) {
+	typ, _ := config.FileGetValue(remote, "type")
+	switch typ {
+	case "drive":
+		id, sub, isComputer := ParseComputerPath(p)
+		if isComputer && strings.Trim(sub, "/") == "" {
+			return "https://drive.google.com/drive/folders/" + id, nil
+		}
+		rel := strings.Trim(p, "/")
+		if isComputer {
+			rel = strings.Trim(sub, "/")
+		}
+		if rel == "" {
+			return "https://drive.google.com/drive/my-drive", nil
+		}
+		name := path.Base(rel)
+		trimmed := strings.TrimRight(p, "/")
+		base := ""
+		if i := strings.LastIndex(trimmed, "/"); i >= 0 {
+			base = trimmed[:i]
+		}
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		f, err := rfs.NewFs(ctx, RemoteFs(remote, base))
+		if err != nil {
+			return "", err
+		}
+		entries, err := f.List(ctx, "")
+		if err != nil {
+			return "", err
+		}
+		for _, e := range entries {
+			if d, ok := e.(rfs.Directory); ok && path.Base(d.Remote()) == name {
+				if id := d.ID(); id != "" {
+					return "https://drive.google.com/drive/folders/" + id, nil
+				}
+			}
+		}
+		return "https://drive.google.com/drive/my-drive", nil
+	case "dropbox":
+		return "https://www.dropbox.com/home/" + url.PathEscape(strings.Trim(p, "/")), nil
+	case "onedrive":
+		return "https://onedrive.live.com/", nil
+	case "box":
+		return "https://app.box.com/folder/0", nil
+	}
+	return "", ErrUnsupported
+}
+
 // List lists one directory level.
 func (r *Rclone) List(ctx context.Context, remote, p string, dirsOnly bool) ([]model.Entry, error) {
 	if remote != "" && p == ComputersPath {

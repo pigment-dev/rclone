@@ -122,7 +122,8 @@ struct OverallStatusText: View {
         let o = model.overall
         let running = max(o.running, model.runningJobs.count)
         if running > 0 {
-            var s = running == 1 ? L("Syncing 1 job") : L("Syncing %d jobs", running)
+            var s = o.totalBytes == 0 ? (running == 1 ? L("Checking 1 job for changes") : L("Checking %d jobs for changes", running))
+                                      : (running == 1 ? L("Syncing 1 job") : L("Syncing %d jobs", running))
             if o.speed > 0 { s += " · " + Fmt.speed(o.speed) }
             if let eta = o.eta, eta > 0 { s += " · " + Fmt.eta(eta) + " " + L("left") }
             return s
