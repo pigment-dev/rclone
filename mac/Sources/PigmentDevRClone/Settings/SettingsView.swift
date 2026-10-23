@@ -484,7 +484,7 @@ struct AccountsSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SettingsGroup(title: "OAuth client IDs") {
-                Text("Google Drive, OneDrive, Dropbox and Box sign-ins use rclone's shared client IDs by default. Shared IDs have rate limits; for heavy use you can create your own (free) and paste it when adding the account — open “Show advanced options” and fill in client_id and client_secret.")
+                Text("Google Drive, OneDrive, Dropbox and Box sign-ins use rclone's shared client IDs by default. Shared IDs have rate limits, and Google is retiring rclone's shared ID during 2026. Create your own (free, about five minutes): when adding the account, open “Advanced” and follow the step-by-step guide.")
                     .font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Step-by-step guide") { NSWorkspace.shared.open(URL(string: "https://pigment.dev/kb/rclone-use-your-own-oauth-client-id/")!) }.pdSecondary(large: false)
@@ -533,6 +533,7 @@ struct AdvancedSettings: View {
                 row2("Startup", launcher.demo ? "Demo daemon" : launcher.overridden ? "External (PDRCLONE_SOCKET)" : agentText)
                 if !launcher.lastNote.isEmpty { row2("Last action", launcher.lastNote) }
             }
+            RcloneEngineGroup()
             SettingsGroup(title: "Logs") {
                 Picker("Log level", selection: $settings.logs.level) {
                     ForEach(["debug", "info", "notice", "warn", "error"], id: \.self) { Text($0.capitalized).tag($0) }
