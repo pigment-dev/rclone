@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-10-23
+
+### Added
+
+- Setup wizard: pick several local folders at once; each becomes its own job, synced into its own subfolder of the chosen cloud folder.
+- Google Drive "Computers" (folders backed up by Google Drive for desktop) can be browsed and used as a sync destination.
+- Settings › Appearance: Glass or Flat window style, with a blur slider for Glass.
+- Step-by-step guide with direct console links for creating your own Google, Microsoft or Dropbox OAuth client ID.
+
+### Changed
+
+- Adding a cloud account is now one step: sign in with the browser. All provider options moved under Advanced.
+- Option help text has clickable links, empty fields show placeholders, and long help is folded behind "More".
+- Glass surfaces are no longer tinted; the window background is the blurred desktop instead of coloured shapes.
+- Releases are published as the latest release, so the download links always point to the newest build.
+
+### Fixed
+
+- The Homebrew cask now finds the `pdrclone` CLI inside the app.
+- The background service is re-registered after an app update, so launchd starts the new daemon.
+- Removing an account is now written to the log.
+
+## [1.0.0-beta.1] - 2026-10-23
+
 ### Added
 
 - macOS app (macOS 14+, Apple Silicon first) with a menu bar popover and a main window: Dashboard, Jobs, Accounts, Action Center, Logs and Settings. Liquid Glass on macOS 26+, translucent material fallback on 14 and 15.
