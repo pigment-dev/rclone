@@ -196,6 +196,13 @@ func (d *Daemon) registerAccountHandlers() {
 		_ = d.cfg.PutAccount(acc)
 		return map[string]any{"quota": q}, nil
 	})
+	method(d, "accounts.refresh", func(ctx context.Context, _ *api.Conn, p idParam) (any, error) {
+		acc, err := d.refreshAccountInfo(ctx, p.ID)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"account": acc}, nil
+	})
 	method(d, "accounts.rename", func(_ context.Context, _ *api.Conn, p struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -257,6 +264,11 @@ func (d *Daemon) finishAdd(res *accounts.Result) *accounts.Result {
 	}
 	res.Account = &acc
 	d.logf("notice", nil, nil, "Account %q (%s) connected", acc.Name, acc.Provider)
+	go func(id string) {
+		ctx, cancel := context.WithTimeout(d.ctx, time.Minute)
+		defer cancel()
+		_, _ = d.refreshAccountInfo(ctx, id)
+	}(acc.ID)
 	for _, j := range d.cfg.Jobs() {
 		if j.AccountID == acc.ID {
 			d.resolveOpen(j.ID, model.ActAuthExpired)
@@ -267,4 +279,29 @@ func (d *Daemon) finishAdd(res *accounts.Result) *accounts.Result {
 
 func engineAuth(err error) bool {
 	return engine.Classify(err) == engine.FailAuth
+}
+
+// refreshAccountInfo fetches storage usage and the signed-in user (where the
+// provider reports them) and saves them on the account.
+func (d *Daemon) refreshAccountInfo(ctx context.Context, id string) (model.Account, error) {
+	acc, ok := d.cfg.Account(id)
+	if !ok {
+		return acc, notFound("account", id)
+	}
+	q, qerr := d.eng.About(ctx, acc.Remote)
+	who, werr := d.eng.Identity(ctx, acc.Remote)
+	if qerr != nil && werr != nil && !errors.Is(qerr, engine.ErrUnsupported) {
+		return acc, providerErr(qerr)
+	}
+	acc, _ = d.cfg.Account(id) // re-read: status may have changed meanwhile
+	if qerr == nil {
+		acc.Quota = q
+	}
+	if werr == nil && who != nil && (who.Email != "" || who.Name != "") {
+		acc.User = who
+	}
+	if err := d.cfg.PutAccount(acc); err != nil {
+		return acc, err
+	}
+	return acc, nil
 }

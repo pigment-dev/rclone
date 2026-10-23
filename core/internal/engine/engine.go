@@ -69,6 +69,7 @@ type Engine interface {
 	List(ctx context.Context, remote, path string, dirsOnly bool) ([]model.Entry, error)
 	Mkdir(ctx context.Context, remote, path string) error
 	About(ctx context.Context, remote string) (*model.Quota, error)
+	Identity(ctx context.Context, remote string) (*model.Identity, error)
 	Test(ctx context.Context, remote string) (time.Duration, error)
 	DeleteRemote(remote string)
 	SetBandwidth(l policy.Limit) error

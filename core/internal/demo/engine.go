@@ -157,6 +157,17 @@ func (e *Engine) Test(context.Context, string) (time.Duration, error) {
 	return 124 * time.Millisecond, nil
 }
 
+// Identity returns made-up signed-in users for the demo accounts.
+func (e *Engine) Identity(_ context.Context, remote string) (*model.Identity, error) {
+	switch remote {
+	case "pd_" + AccWork:
+		return &model.Identity{Name: "Alex Rivera", Email: "alex@studio.example"}, nil
+	case "pd_" + AccPersonal:
+		return &model.Identity{Name: "Alex Rivera", Email: "alex.rivera@example.com"}, nil
+	}
+	return nil, engine.ErrUnsupported
+}
+
 // DeleteRemote is a no-op.
 func (e *Engine) DeleteRemote(string) {}
 

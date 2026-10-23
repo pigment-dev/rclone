@@ -25,7 +25,8 @@ struct AccountStep: View {
                                 ProviderIcon(id: acc.provider, size: 38)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(acc.name).font(PDFont.text(14, .semibold)).foregroundStyle(Theme.text).lineLimit(1)
-                                    Text(model.provider(acc.provider)?.name ?? acc.provider).font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                                    Text(acc.user.map { $0.email.isEmpty ? $0.name : $0.email } ?? (model.provider(acc.provider)?.name ?? acc.provider))
+                                        .font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
                                 }
                                 Spacer()
                                 Image(systemName: job.accountId == acc.id ? "checkmark.circle.fill" : "circle")
@@ -499,6 +500,8 @@ struct AccountsView: View {
     @State private var adding = false
     @State private var testing: Set<String> = []
     @State private var results: [String: AccountTestResult] = [:]
+    @State private var refreshing: Set<String> = []
+    @State private var autoRefreshed: Set<String> = []
     @State private var renaming: Account?
     @State private var newName = ""
     @State private var removing: Account?
@@ -512,7 +515,15 @@ struct AccountsView: View {
                 GlassCard { EmptyState(symbol: "person.crop.circle.badge.plus", title: "No accounts yet", message: "Connect Google Drive, OneDrive, Dropbox, S3, SFTP and more.") }
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 16)], spacing: 16) {
-                ForEach(model.accounts) { acc in card(acc) }
+                ForEach(model.accounts) { acc in
+                    card(acc)
+                        .task(id: acc.id) {
+                            // Fill in storage usage and the signed-in user the first time an account is shown.
+                            guard acc.status == .ok, acc.quota == nil || acc.user == nil, !autoRefreshed.contains(acc.id) else { return }
+                            autoRefreshed.insert(acc.id)
+                            await refreshInfo(acc)
+                        }
+                }
             }
             .pdGlassContainer(spacing: 16)
             GlassCard {
@@ -579,7 +590,14 @@ struct AccountsView: View {
                 ProviderIcon(id: acc.provider, size: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(acc.name).font(PDFont.display(16, .heavy)).foregroundStyle(Theme.text).lineLimit(1)
-                    Text(model.provider(acc.provider)?.name ?? acc.provider).font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                    if let u = acc.user, !u.email.isEmpty || !u.name.isEmpty {
+                        Text(u.email.isEmpty ? u.name : u.email).font(PDFont.text(12.5, .medium)).foregroundStyle(Theme.textSecondary)
+                            .lineLimit(1).truncationMode(.middle).textSelection(.enabled)
+                        Text([u.email.isEmpty ? "" : u.name, model.provider(acc.provider)?.name ?? acc.provider].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted).lineLimit(1)
+                    } else {
+                        Text(model.provider(acc.provider)?.name ?? acc.provider).font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                    }
                 }
                 Spacer()
                 Pill(text: acc.status.title, symbol: acc.status == .ok ? "checkmark" : "exclamationmark", color: acc.status == .ok ? Brand.green : acc.status == .needsAuth ? Brand.orange : Brand.red)
@@ -595,7 +613,11 @@ struct AccountsView: View {
                     }
                 }
             } else {
+                if refreshing.contains(acc.id) {
+                HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Loading storage usage…") }.font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+            } else {
                 Text("Storage usage isn't reported by this provider").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+            }
             }
             if let e = acc.error { Text(e).font(PDFont.text(11.5)).foregroundStyle(Brand.red).lineLimit(2) }
             if let r = results[acc.id] {
@@ -615,7 +637,7 @@ struct AccountsView: View {
                 Text("\(model.jobs.filter { $0.accountId == acc.id }.count) jobs").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
                 Menu {
                     Button("Rename…") { newName = acc.name; renaming = acc }
-                    Button("Refresh storage") { Task { await model.perform { _ = try await $0.call("accounts.quota", IDParams(acc.id), as: QuotaResult.self) }; await model.refreshAccounts() } }
+                    Button("Refresh account info") { Task { await refreshInfo(acc) } }
                     Divider()
                     Button("Remove…", role: .destructive) { removing = acc }
                 } label: { Image(systemName: "ellipsis") }
@@ -624,6 +646,16 @@ struct AccountsView: View {
         }
         .padding(20)
         .pdGlass(radius: Theme.cardRadius)
+    }
+
+    /// Storage usage + signed-in user. Runs once by itself for accounts that have neither yet.
+    private func refreshInfo(_ acc: Account) async {
+        guard let client = model.client, !refreshing.contains(acc.id) else { return }
+        refreshing.insert(acc.id)
+        defer { refreshing.remove(acc.id) }
+        do { _ = try await client.call("accounts.refresh", IDParams(acc.id), as: AccountResult.self, timeout: 60) }
+        catch { model.report(error) }
+        await model.refreshAccounts()
     }
 
     private func test(_ acc: Account) async {

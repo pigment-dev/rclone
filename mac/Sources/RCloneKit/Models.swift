@@ -182,6 +182,14 @@ public struct Account: Codable, Equatable, Identifiable, Sendable {
     public var error: String?
     @Default<EmptyString> public var createdAt: String = ""
     public var quota: Quota?
+    /// Who the account is signed in as, when the provider reports it.
+    public var user: AccountUser?
+    /// "name · email", or whichever is known.
+    public var userLine: String? {
+        guard let u = user else { return nil }
+        let parts = [u.name, u.email].filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
     public init(id: String, provider: String, name: String, remote: String = "", status: Status = .ok, error: String? = nil, createdAt: String = "", quota: Quota? = nil) {
         self.id = id; self.provider = provider; self.name = name; self.remote = remote
         self.status = status; self.error = error; self.createdAt = createdAt; self.quota = quota
@@ -238,6 +246,12 @@ public struct AccountTestResult: Codable, Equatable, Sendable {
 }
 
 public struct QuotaResult: Codable, Sendable { public var quota: Quota? }
+public struct AccountUser: Codable, Equatable, Sendable {
+    @Default<EmptyString> public var name: String = ""
+    @Default<EmptyString> public var email: String = ""
+    public init(name: String = "", email: String = "") { self.name = name; self.email = email }
+}
+public struct AccountResult: Codable, Sendable { public var account: Account? }
 
 // MARK: - Remote browsing
 

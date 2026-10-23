@@ -28,6 +28,13 @@ type Account struct {
 	Error     *string   `json:"error"`
 	CreatedAt time.Time `json:"createdAt"`
 	Quota     *Quota    `json:"quota"`
+	User      *Identity `json:"user"`
+}
+
+// Identity is who the account is signed in as (when the provider reports it).
+type Identity struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 // FieldOption is one choice of a select field.
