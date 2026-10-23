@@ -116,6 +116,9 @@ func New(opt Options) (*Daemon, error) {
 			return nil, err
 		}
 		d.eng = r
+		for _, a := range cfg.Accounts() {
+			r.WarmComputers(a.Remote) // Google Drive "Computers" take minutes to find on big drives
+		}
 		defer d.logf("info", nil, nil, "rclone.conf passphrase from %s", where)
 	}
 	if opt.Flow != nil {

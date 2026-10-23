@@ -18,6 +18,8 @@ for _ in $(seq 1 20); do pgrep -x pdrcloned >/dev/null || pgrep -x PigmentDevRCl
 
 rm -rf "$DEST"
 ditto "dist/$APP_NAME" "$DEST"
+# A daemon respawned during the copy would keep running the old binary.
+pkill -x pdrcloned 2>/dev/null || true
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 "$LSREGISTER" -u "$PWD/dist/$APP_NAME" 2>/dev/null || true
 rm -rf "dist/$APP_NAME"

@@ -70,14 +70,40 @@ func isDrive(remote string) bool {
 // computers lists the Drive for desktop "Computers" roots: folders owned by
 // the user that have no parent. Drive can't query "no parent" directly, so
 // this pages through the user's folders with a minimal field set (much faster
-// than a full rclone listing) and caches the answer for ten minutes.
+// than a full rclone listing) and caches the answer for six hours. On large
+// drives that takes minutes, so the daemon warms the cache in the background
+// (WarmComputers) and the picker usually answers instantly.
 func (r *Rclone) computers(ctx context.Context, remote string) ([]model.Entry, error) {
 	r.mu.Lock()
-	if c, ok := r.computerCache[remote]; ok && time.Since(c.at) < 10*time.Minute {
+	if c, ok := r.computerCache[remote]; ok && time.Since(c.at) < 6*time.Hour {
 		r.mu.Unlock()
 		return c.entries, nil
 	}
+	// One scan per remote at a time: later callers wait for the running one.
+	if wait, busy := r.computerScan[remote]; busy {
+		r.mu.Unlock()
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		r.mu.Lock()
+		c, ok := r.computerCache[remote]
+		r.mu.Unlock()
+		if !ok {
+			return nil, errors.New("couldn't list Google Drive computers")
+		}
+		return c.entries, nil
+	}
+	done := make(chan struct{})
+	r.computerScan[remote] = done
 	r.mu.Unlock()
+	defer func() {
+		r.mu.Lock()
+		delete(r.computerScan, remote)
+		r.mu.Unlock()
+		close(done)
+	}()
 	token, err := r.accessToken(ctx, remote)
 	if err != nil {
 		return nil, err
@@ -138,6 +164,19 @@ func (r *Rclone) computers(ctx context.Context, remote string) ([]model.Entry, e
 	return out, nil
 }
 
+// WarmComputers fills the Computers cache for a Google Drive remote in the
+// background. It is a no-op for other storage types.
+func (r *Rclone) WarmComputers(remote string) {
+	if !isDrive(remote) {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		_, _ = r.computers(ctx, remote)
+	}()
+}
+
 type computerList struct {
 	at      time.Time
 	entries []model.Entry
@@ -146,7 +185,7 @@ type computerList struct {
 // List lists one directory level.
 func (r *Rclone) List(ctx context.Context, remote, p string, dirsOnly bool) ([]model.Entry, error) {
 	if remote != "" && p == ComputersPath {
-		ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
 		return r.computers(ctx, remote)
 	}

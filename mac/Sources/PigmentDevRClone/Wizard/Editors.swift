@@ -139,7 +139,7 @@ struct RemoteBrowser: View {
                     VStack(spacing: 8) {
                         ProgressView().controlSize(.small)
                         if current == "@computers" {
-                            Text("Looking for your computers… this can take a minute on a large Drive.")
+                            Text("Looking for your computers… on a large Drive the first search can take a few minutes. After that it opens instantly.")
                                 .font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
                         }
                     }
@@ -261,7 +261,7 @@ struct RemoteBrowser: View {
         do {
             // Finding Google Drive "Computers" pages through all your folders; give it time on big drives.
             let r = try await client.call("remote.list", RemoteListParams(accountId: accountID?.isEmpty == true ? nil : accountID, path: current, dirsOnly: true),
-                                          as: RemoteListResult.self, timeout: current == "@computers" ? 200 : 60)
+                                          as: RemoteListResult.self, timeout: current == "@computers" ? 600 : 60)
             entries = r.entries
         } catch {
             entries = []

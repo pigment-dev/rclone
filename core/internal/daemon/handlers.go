@@ -268,6 +268,9 @@ func (d *Daemon) finishAdd(res *accounts.Result) *accounts.Result {
 		ctx, cancel := context.WithTimeout(d.ctx, time.Minute)
 		defer cancel()
 		_, _ = d.refreshAccountInfo(ctx, id)
+		if w, ok := d.eng.(interface{ WarmComputers(string) }); ok {
+			w.WarmComputers(acc.Remote)
+		}
 	}(acc.ID)
 	for _, j := range d.cfg.Jobs() {
 		if j.AccountID == acc.ID {

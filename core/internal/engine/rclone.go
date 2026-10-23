@@ -33,7 +33,8 @@ type Rclone struct {
 	sink   LogFn
 	active map[string]*activeRun // runID → run, for log attribution
 
-	computerCache map[string]computerList // remote → Google Drive Computers
+	computerCache map[string]computerList  // remote → Google Drive Computers
+	computerScan  map[string]chan struct{} // remote → scan in progress
 }
 
 type activeRun struct {
@@ -43,7 +44,7 @@ type activeRun struct {
 
 // NewRclone initialises rclone's global state. Call once per process.
 func NewRclone(opt Options) (*Rclone, error) {
-	r := &Rclone{active: map[string]*activeRun{}, computerCache: map[string]computerList{}}
+	r := &Rclone{active: map[string]*activeRun{}, computerCache: map[string]computerList{}, computerScan: map[string]chan struct{}{}}
 	if err := config.SetConfigPath(opt.ConfigPath); err != nil {
 		return nil, err
 	}
