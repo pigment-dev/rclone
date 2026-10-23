@@ -191,59 +191,58 @@ struct AddAccountFlow: View {
                     Spacer()
                     Button("Back") { phase = .pick }.buttonStyle(.link)
                 }
-                if p.auth == .oauth {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(Array(oauthSteps(p).enumerated()), id: \.offset) { i, text in
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text("\(i + 1)").font(PDFont.numbers(11)).foregroundStyle(.white)
-                                    .frame(width: 18, height: 18).background(Circle().fill(Brand.orange))
-                                Text(text).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                let hasAdvanced = visibleFields.contains(where: \.advanced)
+                if hasAdvanced {
+                    Picker("", selection: $showAdvanced) {
+                        Text(p.auth == .oauth ? "Sign in" : "Connection").tag(false)
+                        Text(p.auth == .oauth ? "Advanced: own client ID and options" : "Advanced options").tag(true)
                     }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
-                LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(.roundedBorder) }
-                ForEach(visibleFields.filter { !$0.advanced }) { field in
-                    FieldInput(field: field, providerID: p.id, value: binding(field))
-                }
-                HStack {
-                    Spacer()
-                    signInButton(p)
-                }
-                if visibleFields.contains(where: \.advanced) {
-                    DisclosureGroup(isExpanded: $showAdvanced) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            if p.auth == .oauth, p.fields.contains(where: { $0.name == "client_id" }) {
-                                OwnClientIDGuide(providerID: p.id)
-                            }
-                            ForEach(keyAdvanced) { field in
+                if showAdvanced && hasAdvanced {
+                    if p.auth == .oauth, p.fields.contains(where: { $0.name == "client_id" }) {
+                        OwnClientIDGuide(providerID: p.id)
+                    }
+                    ForEach(keyAdvanced) { field in
+                        FieldInput(field: field, providerID: p.id, value: binding(field))
+                    }
+                    if !otherAdvanced.isEmpty {
+                        Button { withAnimation(.easeOut(duration: 0.15)) { showAllOptions.toggle() } } label: {
+                            Label(L("All rclone options (%d)", otherAdvanced.count), systemImage: showAllOptions ? "chevron.down" : "chevron.right")
+                                .font(PDFont.text(12, .semibold)).foregroundStyle(Theme.textSecondary)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if showAllOptions {
+                            ForEach(otherAdvanced) { field in
                                 FieldInput(field: field, providerID: p.id, value: binding(field))
                             }
-                            if !otherAdvanced.isEmpty {
-                                DisclosureGroup(isExpanded: $showAllOptions) {
-                                    VStack(alignment: .leading, spacing: 14) {
-                                        ForEach(otherAdvanced) { field in
-                                            FieldInput(field: field, providerID: p.id, value: binding(field))
-                                        }
-                                    }
-                                    .padding(.top, 10)
-                                } label: {
-                                    Text(L("All rclone options (%d)", otherAdvanced.count))
-                                        .font(PDFont.text(12, .semibold)).foregroundStyle(Theme.textMuted)
+                        }
+                    }
+                } else {
+                    if p.auth == .oauth {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(Array(oauthSteps(p).enumerated()), id: \.offset) { i, text in
+                                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                    Text("\(i + 1)").font(PDFont.numbers(11)).foregroundStyle(.white)
+                                        .frame(width: 18, height: 18).background(Circle().fill(Brand.orange))
+                                    Text(text).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                                 }
                             }
-                            // The main button sits above this section; repeat it so a long form never strands you.
-                            HStack {
-                                Spacer()
-                                signInButton(p)
-                            }
-                            .padding(.top, 4)
                         }
-                        .padding(.top, 10)
-                    } label: {
-                        Text(p.auth == .oauth ? "Advanced: own client ID, scope, root folder and more" : "Advanced options")
-                            .font(PDFont.text(12.5, .semibold)).foregroundStyle(Theme.textSecondary)
                     }
+                    LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(.roundedBorder) }
+                    ForEach(visibleFields.filter { !$0.advanced }) { field in
+                        FieldInput(field: field, providerID: p.id, value: binding(field))
+                    }
+                }
+                HStack {
+                    if showAdvanced, !(values["client_id"] ?? "").isEmpty {
+                        Label("Your own client ID will be used", systemImage: "checkmark.circle.fill")
+                            .font(PDFont.text(11.5)).foregroundStyle(Brand.green)
+                    }
+                    Spacer()
+                    signInButton(p)
                 }
             }
         }
