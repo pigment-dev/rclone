@@ -31,9 +31,23 @@ final class AppEnvironment {
         let notifier = self.notifier
         let prefs = self.prefs
         let system = self.system
+        let client = self.client
+        var restartedForVersion = false
         model.onEvent = { event in
             notifier.handle(event, prefs: prefs)
-            if case .connection(.connected) = event { system.pushNow() }
+            if case .connection(.connected(let hello)) = event {
+                system.pushNow()
+                // After an app update the old sync service can still be running. Restart it once so
+                // the bundled daemon of this version takes over.
+                if hello.daemonVersion != version, !restartedForVersion, !launcher.demo, !launcher.overridden {
+                    restartedForVersion = true
+                    Task {
+                        try? await client.send("daemon.shutdown", timeout: 5)
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        await client.reconnect()
+                    }
+                }
+            }
         }
         Task {
             await client.setBeforeConnect { attempt in await launcher.ensureRunning(attempt: attempt) }

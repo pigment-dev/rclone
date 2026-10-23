@@ -51,8 +51,13 @@ end tell
 EOF
     sync
 fi
-[ -n "$DEV" ] && hdiutil detach "$DEV" -quiet || true
+if [ -n "$DEV" ]; then hdiutil detach "$DEV" -quiet || hdiutil detach "$DEV" -force -quiet || true; fi
 
 rm -f "$DMG"
-hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" >/dev/null
+# The volume can stay busy for a moment after detaching ("Resource temporarily unavailable"); retry.
+for i in 1 2 3 4 5; do
+    hdiutil convert "$RW" -format UDZO -imagekey zlib-level=9 -o "$DMG" -ov >/dev/null && break
+    [ "$i" = 5 ] && exit 1
+    sleep 3
+done
 echo "Built $DMG"
