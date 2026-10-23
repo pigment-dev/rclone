@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # New rclone releases arrive as pull requests; merging one and tagging a
+  # release ships the new rclone inside the app and the CLI.
+  - package-ecosystem: gomod
+    directory: /core
+    schedule:
+      interval: weekly
+    allow:
+      - dependency-name: github.com/rclone/rclone
+    labels: [rclone]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
