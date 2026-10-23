@@ -56,7 +56,10 @@ final class DaemonLauncher: @unchecked Sendable {
             agentTried = true
             do {
                 let service = SMAppService.agent(plistName: Self.agentPlist)
-                if service.status != .enabled { try service.register() }
+                // An app update replaces the daemon binary, and launchd then refuses to spawn the
+                // old registration ("spawn failed"). Re-register so it picks up the new binary.
+                if service.status == .enabled { try? await service.unregister() }
+                try service.register()
                 lastNote = "LaunchAgent registered"
             } catch {
                 lastNote = "LaunchAgent: \(error.localizedDescription)"
