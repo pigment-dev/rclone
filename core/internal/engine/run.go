@@ -41,6 +41,9 @@ func LocalFs(j model.Job) string {
 // RemoteFs returns the rclone fs string for remote:path. A leading slash
 // is kept: on sftp/ftp/local it means an absolute path.
 func RemoteFs(remote, p string) string {
+	if id, sub, ok := ParseComputerPath(p); ok {
+		return remote + ",root_folder_id=" + id + ":" + strings.Trim(sub, "/")
+	}
 	if p != "/" {
 		p = strings.TrimRight(p, "/")
 	}

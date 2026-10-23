@@ -41,7 +41,7 @@ struct JobsListView: View {
         let q = search.trimmingCharacters(in: .whitespaces)
         let all = model.jobs.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         guard !q.isEmpty else { return all }
-        return all.filter { $0.name.localizedCaseInsensitiveContains(q) || $0.localPath.localizedCaseInsensitiveContains(q) || $0.remotePath.localizedCaseInsensitiveContains(q) }
+        return all.filter { $0.name.localizedCaseInsensitiveContains(q) || $0.localPath.localizedCaseInsensitiveContains(q) || Fmt.remote($0.remotePath).localizedCaseInsensitiveContains(q) }
     }
 }
 
@@ -181,7 +181,11 @@ struct JobDetailView: View {
                     Button("Open in the cloud") { openRemote(job, account) }
                     Button("Copy remote path") {
                         NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString((account?.remote ?? "") + ":" + job.remotePath, forType: .string)
+                        if let c = Fmt.computer(job.remotePath) {
+                            NSPasteboard.general.setString((account?.remote ?? "") + ",root_folder_id=" + c.id + ":" + c.sub, forType: .string)
+                        } else {
+                            NSPasteboard.general.setString((account?.remote ?? "") + ":" + job.remotePath, forType: .string)
+                        }
                     }
                     Button("View logs") { router.logJobFilter = jobID; router.show(.logs) }
                     Divider()
@@ -199,7 +203,7 @@ struct JobDetailView: View {
         let path = job.remotePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
         let url: String?
         switch account?.provider {
-        case "drive": url = "https://drive.google.com/drive/my-drive"
+        case "drive": url = Fmt.computer(job.remotePath).map { "https://drive.google.com/drive/folders/" + $0.id } ?? "https://drive.google.com/drive/my-drive"
         case "onedrive": url = "https://onedrive.live.com/"
         case "dropbox": url = "https://www.dropbox.com/home/" + path
         case "box": url = "https://app.box.com/folder/0"
@@ -276,7 +280,7 @@ struct JobDetailView: View {
         return VStack(spacing: 14) {
             HStack(spacing: 14) {
                 InfoTile(title: "This Mac", value: Fmt.path(job.localPath), symbol: "laptopcomputer")
-                InfoTile(title: "Cloud", value: (account?.name ?? "—") + ": /" + job.remotePath, symbol: "cloud")
+                InfoTile(title: "Cloud", value: (account?.name ?? "—") + ": /" + Fmt.remote(job.remotePath), symbol: "cloud")
             }
             HStack(spacing: 14) {
                 InfoTile(title: "Direction", value: job.direction.title, symbol: job.direction.symbol)

@@ -5,6 +5,25 @@ public func L(_ key: String) -> String { NSLocalizedString(key, bundle: .main, c
 public func L(_ key: String, _ args: CVarArg...) -> String { String(format: L(key), arguments: args) }
 
 public enum Fmt {
+    /// Google Drive "Computers" virtual paths (see the daemon's engine/remote.go):
+    /// "@computers" and "@computer:<folderID>:<name>/sub".
+    public static func computer(_ p: String) -> (id: String, name: String, sub: String)? {
+        guard p.hasPrefix("@computer:") else { return nil }
+        let rest = p.dropFirst("@computer:".count)
+        guard let colon = rest.firstIndex(of: ":") else { return nil }
+        let id = String(rest[..<colon])
+        let after = rest[rest.index(after: colon)...]
+        let parts = after.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+        return (id, String(parts.first ?? ""), parts.count > 1 ? String(parts[1]) : "")
+    }
+
+    /// Remote path as shown to people: "Backups/Projects", "Computers/My Mac/Desktop".
+    public static func remote(_ p: String) -> String {
+        if p == "@computers" { return "Computers" }
+        if let c = computer(p) { return "Computers/" + c.name + (c.sub.isEmpty ? "" : "/" + c.sub) }
+        return p
+    }
+
     /// Decimal (Finder-style) byte counts: "999 B", "1.5 MB", "12.3 GB", "120 GB".
     public static func bytes(_ value: Int64) -> String {
         let units = ["B", "KB", "MB", "GB", "TB", "PB"]

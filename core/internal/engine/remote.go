@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	rfs "github.com/rclone/rclone/fs"
 	"github.com/rclone/rclone/fs/accounting"
+	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/operations"
 	"github.com/rclone/rclone/fs/walk"
 
@@ -31,10 +33,86 @@ func fsFor(remote, p string) string {
 	return RemoteFs(remote, p)
 }
 
+// Google Drive "Computers" (folders backed up by Drive for desktop) live
+// outside My Drive. They are addressed with virtual paths:
+//
+//	@computers                      the list of computers
+//	@computer:<folderID>:<name>/sub  a folder inside one computer
+//
+// RemoteFs turns the second form into remote,root_folder_id=<folderID>:sub.
+const (
+	ComputersPath   = "@computers"
+	computerPrefix  = "@computer:"
+	driveFolderMime = "application/vnd.google-apps.folder"
+)
+
+// ParseComputerPath splits a "@computer:<id>:<name>/sub" path.
+func ParseComputerPath(p string) (id, sub string, ok bool) {
+	rest, found := strings.CutPrefix(strings.TrimPrefix(p, "/"), computerPrefix)
+	if !found {
+		return "", "", false
+	}
+	id, after, found := strings.Cut(rest, ":")
+	if !found || id == "" {
+		return "", "", false
+	}
+	_, sub, _ = strings.Cut(after, "/")
+	return id, sub, true
+}
+
+func isDrive(remote string) bool {
+	t, _ := config.FileGetValue(remote, "type")
+	return t == "drive"
+}
+
+// computers lists the Drive for desktop "Computers" roots: folders owned by
+// the user that have no parent.
+func (r *Rclone) computers(ctx context.Context, remote string) ([]model.Entry, error) {
+	f, err := rfs.NewFs(ctx, remote+":")
+	if err != nil {
+		return nil, err
+	}
+	cmd := f.Features().Command
+	if cmd == nil {
+		return nil, errors.New("this storage has no Computers section")
+	}
+	res, err := cmd(ctx, "query", []string{"'me' in owners and mimeType='" + driveFolderMime + "' and trashed=false and not 'root' in parents"}, nil)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(res)
+	if err != nil {
+		return nil, err
+	}
+	var files []struct {
+		ID           string   `json:"id"`
+		Name         string   `json:"name"`
+		Parents      []string `json:"parents"`
+		ModifiedTime string   `json:"modifiedTime"`
+	}
+	if err := json.Unmarshal(raw, &files); err != nil {
+		return nil, err
+	}
+	out := []model.Entry{}
+	for _, fl := range files {
+		if len(fl.Parents) != 0 || fl.ID == "" {
+			continue
+		}
+		mt, _ := time.Parse(time.RFC3339, fl.ModifiedTime)
+		name := strings.ReplaceAll(fl.Name, "/", "-")
+		out = append(out, model.Entry{Name: fl.Name, Path: computerPrefix + fl.ID + ":" + name, IsDir: true, ModTime: mt.UTC()})
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out, nil
+}
+
 // List lists one directory level.
 func (r *Rclone) List(ctx context.Context, remote, p string, dirsOnly bool) ([]model.Entry, error) {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
+	if remote != "" && p == ComputersPath {
+		return r.computers(ctx, remote)
+	}
 	f, err := rfs.NewFs(ctx, fsFor(remote, p))
 	if err != nil {
 		return nil, err
@@ -62,11 +140,21 @@ func (r *Rclone) List(ctx context.Context, remote, p string, dirsOnly bool) ([]m
 		}
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
+	if remote != "" && p == "" && isDrive(remote) {
+		out = append([]model.Entry{{Name: "Computers", Path: ComputersPath, IsDir: true}}, out...)
+	}
 	return out, nil
 }
 
 // Mkdir creates a directory.
 func (r *Rclone) Mkdir(ctx context.Context, remote, p string) error {
+	if id, sub, ok := ParseComputerPath(p); ok {
+		f, err := rfs.NewFs(ctx, RemoteFs(remote, computerPrefix+id+":x"))
+		if err != nil {
+			return err
+		}
+		return operations.Mkdir(ctx, f, strings.Trim(sub, "/"))
+	}
 	f, err := rfs.NewFs(ctx, fsFor(remote, ""))
 	if err != nil {
 		return err

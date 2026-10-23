@@ -87,11 +87,11 @@ struct JobRow: View {
     }
 
     private func remote(_ account: Account?) -> String {
-        (account?.name ?? L("Unknown account")) + " · /" + job.remotePath
+        (account?.name ?? L("Unknown account")) + " · /" + Fmt.remote(job.remotePath)
     }
 
     private func route(_ account: Account?) -> String {
-        let remote = (account?.name ?? L("Unknown account")) + ":" + (job.remotePath.isEmpty ? "/" : job.remotePath)
+        let remote = (account?.name ?? L("Unknown account")) + ":" + (job.remotePath.isEmpty ? "/" : Fmt.remote(job.remotePath))
         return Fmt.path(job.localPath) + "  " + (job.direction == .twoWay ? "⇄" : job.direction == .upload ? "→" : "←") + "  " + remote
     }
 

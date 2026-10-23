@@ -237,6 +237,7 @@ func (d *Daemon) registerAccountHandlers() {
 		if err := d.cfg.DeleteAccount(p.ID); err != nil {
 			return nil, err
 		}
+		d.logf("notice", nil, nil, "Account %q (%s) removed", acc.Name, acc.Provider)
 		return api.OK, nil
 	})
 }
@@ -251,7 +252,9 @@ func (d *Daemon) finishAdd(res *accounts.Result) *accounts.Result {
 		acc.Name, acc.CreatedAt, acc.Quota = old.Name, old.CreatedAt, old.Quota
 	}
 	acc.Status, acc.Error = model.AccountOK, nil
-	_ = d.cfg.PutAccount(acc)
+	if err := d.cfg.PutAccount(acc); err != nil {
+		d.logf("error", nil, nil, "Saving account %q failed: %v", acc.Name, err)
+	}
 	res.Account = &acc
 	d.logf("notice", nil, nil, "Account %q (%s) connected", acc.Name, acc.Provider)
 	for _, j := range d.cfg.Jobs() {
