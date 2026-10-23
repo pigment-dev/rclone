@@ -1,4 +1,4 @@
-class Pdrclone < Formula
+class Rclone < Formula
   desc "Sync daemon and CLI for PigmentDev rClone, powered by rclone"
   homepage "https://pigment.dev/products/rclone/"
   version "1.0.0-beta.1"
@@ -48,7 +48,7 @@ class Pdrclone < Formula
   def caveats
     <<~EOS
       To run the daemon in the background:
-        brew services start pdrclone
+        brew services start pigment-dev/cli/rclone
 
       Or let the CLI install a LaunchAgent (macOS) or systemd user unit (Linux):
         pdrclone daemon install
