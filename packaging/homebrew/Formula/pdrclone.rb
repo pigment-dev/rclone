@@ -1,28 +1,28 @@
 class Pdrclone < Formula
   desc "Sync daemon and CLI for PigmentDev rClone, powered by rclone"
   homepage "https://pigment.dev/products/rclone/"
-  version "1.0.0-beta.3"
+  version "1.0.0-beta.4"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/pigment-dev/rclone/releases/download/v#{version}/pdrclone_#{version}_darwin_arm64.tar.gz"
-      sha256 "8896b140b708724289ef13542aea9d0cc57a7a509305acc0173284e690435411"
+      sha256 "4db2d58975ad24148819cf74b123e08a5d3a937d20c284d65a4147f0ea33ab58"
     end
     on_intel do
       url "https://github.com/pigment-dev/rclone/releases/download/v#{version}/pdrclone_#{version}_darwin_amd64.tar.gz"
-      sha256 "65c81eb72a2296efa3d8ba9fb14efc5e7cbba13aee04dc9430f7ee06472e2b36"
+      sha256 "88494bcefd88debed1e43783879eb564bba520d8e216ae6da374994d8f8b400e"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/pigment-dev/rclone/releases/download/v#{version}/pdrclone_#{version}_linux_arm64.tar.gz"
-      sha256 "9657d12f7540441b85218a8a87a92304951830c936bd787cf8d0be818bdc9966"
+      sha256 "fa1f80c169b9dd806625517bc6c5752384fad646a19e60a6d38b9c05be1d721c"
     end
     on_intel do
       url "https://github.com/pigment-dev/rclone/releases/download/v#{version}/pdrclone_#{version}_linux_amd64.tar.gz"
-      sha256 "8f334d8b2693c8b81b2dbadb490da62aa84e4215459efc5d2acc971c8e0e5291"
+      sha256 "b754cbd4ac2e34b89acaaa369ec95b0cc749588e42b6ebd32305e16ebb055062"
     end
   end
 
