@@ -155,7 +155,7 @@ struct HeaderLogo: ToolbarContent {
 
 struct BrandLogoImage: View {
     @Environment(\.colorScheme) private var scheme
-    var height: CGFloat = 20
+    var height: CGFloat = 26
 
     var body: some View {
         let name = scheme == .dark ? "logo-horizontal-dark" : "logo-horizontal"
