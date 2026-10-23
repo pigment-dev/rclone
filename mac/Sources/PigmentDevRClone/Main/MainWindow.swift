@@ -31,7 +31,6 @@ struct MainWindow: View {
             WizardView(firstRun: router.wizardFirstRun)
                 .environment(model).environment(prefs).environment(router)
                 .environment(\.layoutDirection, prefs.layoutDirection)
-                .environment(\.locale, prefs.locale)
         }
         .onAppear {
             router.openMainWindow = { openWindow(id: "main") }
@@ -94,7 +93,7 @@ struct ConnectionFooter: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.textSecondary)
                 if let h = model.hello, model.isConnected {
-                    Text(verbatim: "pdrcloned \(h.daemonVersion) · rclone \(h.rcloneVersion)")
+                    Text("pdrcloned \(h.daemonVersion) · rclone \(h.rcloneVersion)")
                         .font(PDFont.mono(9, .medium)).foregroundStyle(Theme.textMuted).lineLimit(1)
                 }
             }

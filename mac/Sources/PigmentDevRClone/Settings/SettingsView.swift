@@ -172,10 +172,6 @@ struct GeneralSettings: View {
                 }
                 Text(surfaceStyle == "glass" ? "Glass shows your desktop through a blur. Move the slider to make it clearer or more frosted." : "Flat uses solid light or dark colours, following the Theme above.")
                     .font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
-                Picker("Language", selection: $prefs.language) {
-                    Text("System").tag("system"); Text("English").tag("en"); Text("فارسی").tag("fa")
-                }
-                Text("Language changes apply after relaunching.").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
             }
             SettingsGroup(title: "Updates", footer: "Updates are downloaded from GitHub Releases and verified with PigmentDev's signing key. No telemetry, ever.") {
                 Toggle("Check for updates automatically", isOn: $prefs.autoCheckUpdates)
@@ -195,10 +191,10 @@ struct UpdateRow: View {
     var body: some View {
         HStack(spacing: 10) {
             switch updater.phase {
-            case .idle: Text(L("Version %@", updater.currentVersion)).foregroundStyle(Theme.textSecondary)
+            case .idle: Text("Version \(updater.currentVersion)").foregroundStyle(Theme.textSecondary)
             case .checking: ProgressView().controlSize(.small); Text("Checking…")
             case .upToDate: Label("You're up to date", systemImage: "checkmark.circle.fill").foregroundStyle(Brand.green)
-            case .available: Label(L("Version %@ is available", updater.latest?.version ?? ""), systemImage: "arrow.down.circle.fill").foregroundStyle(Brand.orange)
+            case .available: Label("Version \(updater.latest?.version ?? "") is available", systemImage: "arrow.down.circle.fill").foregroundStyle(Brand.orange)
             case .downloading: ProgressView().controlSize(.small); Text("Downloading…")
             case .failed(let m): Label(m, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Brand.red).lineLimit(2)
             }
@@ -225,16 +221,16 @@ struct SyncDefaultsSettings: View {
                 Picker("Conflicts", selection: $settings.defaults.conflictPolicy) { ForEach(ConflictPolicy.allCases, id: \.self) { Text($0.title).tag($0) } }
             }
             SettingsGroup(title: "Timing & safety") {
-                Stepper(value: $settings.defaults.debounceSec, in: 2...600) { Text(L("Wait %d s after a change before syncing", settings.defaults.debounceSec)) }
+                Stepper(value: $settings.defaults.debounceSec, in: 2...600) { Text("Wait \(settings.defaults.debounceSec) s after a change before syncing") }
                 Stepper(value: Binding(get: { Int(settings.defaults.minAgeSec) }, set: { settings.defaults.minAgeSec = Int64($0) }), in: 0...3600, step: 5) {
-                    Text(L("Skip files modified in the last %lld s", settings.defaults.minAgeSec))
+                    Text("Skip files modified in the last \(settings.defaults.minAgeSec) s")
                 }
-                Stepper(value: $settings.defaults.maxDeletePercent, in: 0...100, step: 5) { Text(L("Delete guard: stop if a run deletes more than %d%%", settings.defaults.maxDeletePercent)) }
+                Stepper(value: $settings.defaults.maxDeletePercent, in: 0...100, step: 5) { Text("Delete guard: stop if a run deletes more than \(settings.defaults.maxDeletePercent)%") }
                 Toggle("Dry-run preview before a job's first run", isOn: $settings.defaults.dryRunFirst)
             }
             SettingsGroup(title: "Engine", footer: "Higher numbers are faster on big folders but use more memory and API quota.") {
-                Stepper(value: $settings.engine.transfers, in: 1...32) { Text(L("%d parallel transfers", settings.engine.transfers)) }
-                Stepper(value: $settings.engine.checkers, in: 1...64) { Text(L("%d parallel checkers", settings.engine.checkers)) }
+                Stepper(value: $settings.engine.transfers, in: 1...32) { Text("\(settings.engine.transfers) parallel transfers") }
+                Stepper(value: $settings.engine.checkers, in: 1...64) { Text("\(settings.engine.checkers) parallel checkers") }
                 Stepper(value: $settings.engine.tpsLimit, in: 0...100) { Text(settings.engine.tpsLimit == 0 ? L("No API rate limit") : L("At most %d API calls per second", settings.engine.tpsLimit)) }
             }
         }
@@ -344,10 +340,10 @@ struct SystemStateCard: View {
     var state: SystemState
     var body: some View {
         HStack(spacing: 18) {
-            stat("Network", value: state.network.status == .satisfied ? L(state.network.interface.rawValue.capitalized) : L("Offline"), symbol: "network")
+            stat("Network", value: state.network.status == .satisfied ? state.network.interface.rawValue.capitalized : L("Offline"), symbol: "network")
             stat("Wi-Fi", value: state.network.ssid ?? "—", symbol: "wifi")
             stat("Metered", value: state.network.expensive || state.network.constrained ? L("Yes") : L("No"), symbol: "gauge.with.dots.needle.33percent")
-            stat("Power", value: state.power.onBattery ? (state.power.batteryPercent.map { Fmt.digits("\($0)%") } ?? L("Battery")) : L("Adapter"), symbol: "bolt.fill")
+            stat("Power", value: state.power.onBattery ? (state.power.batteryPercent.map { "\($0)%" } ?? L("Battery")) : L("Adapter"), symbol: "bolt.fill")
             stat("Free disk", value: Fmt.bytes(state.disk.freeBytes), symbol: "internaldrive")
         }
         .padding(16)
@@ -368,7 +364,7 @@ struct BandwidthGridEditor: View {
     @Binding var grid: BandwidthGrid
     @State private var paintValue: Bool?
     private let days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    private let labelW: CGFloat = Fmt.isPersian ? 48 : 36
+    private let labelW: CGFloat = 36
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -376,7 +372,7 @@ struct BandwidthGridEditor: View {
                 Color.clear.frame(width: labelW, height: 1)
                 GeometryReader { g in
                     ForEach([0, 6, 12, 18], id: \.self) { h in
-                        Text(verbatim: Fmt.digits(String(format: "%02d", h))).font(PDFont.mono(9, .medium)).foregroundStyle(Theme.textMuted)
+                        Text(String(format: "%02d", h)).font(PDFont.mono(9, .medium)).foregroundStyle(Theme.textMuted)
                             .position(x: g.size.width * CGFloat(h) / 24 + 7, y: 6)
                     }
                 }
@@ -409,11 +405,9 @@ struct BandwidthGridEditor: View {
                 .frame(height: 21 * 7)
             }
         }
-        // Hours run left to right in both languages; the canvas and drag maths assume it.
-        .environment(\.layoutDirection, .leftToRight)
         .accessibilityElement()
         .accessibilityLabel("Bandwidth timetable")
-        .accessibilityValue(L("%d limited periods", grid.slots.count))
+        .accessibilityValue("\(grid.slots.count) limited periods")
     }
 }
 
@@ -526,22 +520,22 @@ struct AdvancedSettings: View {
                         row("rclone", i.rcloneVersion)
                         row("Uptime", Fmt.eta(Double(i.uptimeSec)))
                         row("Memory", Fmt.bytes(i.rssBytes))
-                        row("Jobs running", Fmt.digits("\(i.jobsRunning)"))
+                        row("Jobs running", "\(i.jobsRunning)")
                         row("Data folder", i.dataDir)
                     }
                     .font(PDFont.text(12.5))
                 }
                 row2("Socket", launcher.socketPath)
-                row2("Startup", launcher.demo ? L("Demo daemon") : launcher.overridden ? L("External (PDRCLONE_SOCKET)") : agentText)
+                row2("Startup", launcher.demo ? "Demo daemon" : launcher.overridden ? "External (PDRCLONE_SOCKET)" : agentText)
                 if !launcher.lastNote.isEmpty { row2("Last action", launcher.lastNote) }
             }
             RcloneEngineGroup()
             SettingsGroup(title: "Logs") {
                 Picker("Log level", selection: $settings.logs.level) {
-                    ForEach(["debug", "info", "notice", "warn", "error"], id: \.self) { Text(LocalizedStringKey($0.capitalized)).tag($0) }
+                    ForEach(["debug", "info", "notice", "warn", "error"], id: \.self) { Text($0.capitalized).tag($0) }
                 }
                 .pickerStyle(.segmented).fixedSize()
-                Stepper(value: $settings.logs.retentionDays, in: 1...365) { Text(L("Keep logs for %d days", settings.logs.retentionDays)) }
+                Stepper(value: $settings.logs.retentionDays, in: 1...365) { Text("Keep logs for \(settings.logs.retentionDays) days") }
             }
             SettingsGroup(title: "Data", footer: "Exports contain jobs and settings only — never passwords or tokens.") {
                 HStack(spacing: 8) {
@@ -569,11 +563,11 @@ struct AdvancedSettings: View {
 
     private var agentText: String {
         switch launcher.agentStatus {
-        case .enabled: return L("LaunchAgent (enabled)")
-        case .requiresApproval: return L("LaunchAgent needs approval in System Settings → Login Items")
-        case .notRegistered: return launcher.childRunning ? L("Child process") : L("LaunchAgent not registered")
-        case .notFound: return launcher.childRunning ? L("Child process") : L("LaunchAgent not bundled")
-        @unknown default: return L("Unknown")
+        case .enabled: return "LaunchAgent (enabled)"
+        case .requiresApproval: return "LaunchAgent needs approval in System Settings → Login Items"
+        case .notRegistered: return launcher.childRunning ? "Child process" : "LaunchAgent not registered"
+        case .notFound: return launcher.childRunning ? "Child process" : "LaunchAgent not bundled"
+        @unknown default: return "Unknown"
         }
     }
 
@@ -632,9 +626,9 @@ struct AboutSettings: View {
                 BrandMark(size: 72)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("PigmentDev rClone").font(PDFont.display(26, .black)).foregroundStyle(Theme.text)
-                    Text(L("Version %@ (%@)", Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev", Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"))
+                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"))")
                         .font(PDFont.text(13)).foregroundStyle(Theme.textSecondary)
-                    if let h = model.hello { Text(verbatim: "pdrcloned \(h.daemonVersion) · rclone \(h.rcloneVersion) · \(h.os)/\(h.arch)").font(PDFont.mono(11, .medium)).foregroundStyle(Theme.textMuted) }
+                    if let h = model.hello { Text("pdrcloned \(h.daemonVersion) · rclone \(h.rcloneVersion) · \(h.os)/\(h.arch)").font(PDFont.mono(11, .medium)).foregroundStyle(Theme.textMuted) }
                 }
             }
             .padding(22).frame(maxWidth: .infinity, alignment: .leading).pdGlass(radius: Theme.cardRadius)
@@ -660,7 +654,7 @@ struct AboutSettings: View {
     private func license(_ name: String, _ text: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name).font(PDFont.text(13, .semibold)).foregroundStyle(Theme.text)
-            Text(L(text)).font(PDFont.text(12)).foregroundStyle(Theme.textSecondary)
+            Text(text).font(PDFont.text(12)).foregroundStyle(Theme.textSecondary)
         }
     }
 }

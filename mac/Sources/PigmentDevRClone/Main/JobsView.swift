@@ -107,7 +107,7 @@ struct JobDetailView: View {
         .onAppear { load(job) }
         .onChange(of: jobID) { _, _ in loadedID = nil; load(model.job(jobID) ?? Job()) }
         .task(id: jobID) { await loadHistory() }
-        .confirmationDialog(Text(L("Delete “%@”?", job.name)), isPresented: $confirmDelete) {
+        .confirmationDialog("Delete “\(job.name)”?", isPresented: $confirmDelete) {
             Button("Delete job", role: .destructive) {
                 Task { await model.deleteJob(jobID); router.selectedJobID = nil }
             }
@@ -228,7 +228,7 @@ struct JobDetailView: View {
                 }
                 JobProgressBlock(progress: p)
                 if p.totalChecks > 0 {
-                    Text(L("Checked %@ of %@ files", Fmt.count(p.checks), Fmt.count(p.totalChecks)) + (p.errors > 0 ? " · " + L("%d errors", p.errors) : ""))
+                    Text("Checked \(Fmt.count(p.checks)) of \(Fmt.count(p.totalChecks)) files" + (p.errors > 0 ? " · \(p.errors) errors" : ""))
                         .font(PDFont.numbers(11.5)).foregroundStyle(Theme.textMuted)
                 }
                 if !p.transferring.isEmpty {
@@ -289,7 +289,7 @@ struct JobDetailView: View {
             }
             HStack(spacing: 14) {
                 InfoTile(title: "Schedule", value: ScheduleEditor.summary(job.triggers), symbol: "calendar.badge.clock")
-                InfoTile(title: "Excluded", value: job.filters.presets.compactMap { FilterPreset.named($0).map { L($0.title) } }.joined(separator: Fmt.listSeparator).ifEmpty(L("Nothing")), symbol: "line.3.horizontal.decrease.circle")
+                InfoTile(title: "Excluded", value: job.filters.presets.compactMap { FilterPreset.named($0)?.title }.joined(separator: ", ").ifEmpty("Nothing"), symbol: "line.3.horizontal.decrease.circle")
             }
             if let last = job.status?.lastRun {
                 GlassCard {
@@ -361,10 +361,10 @@ struct RunRow: View {
             }
             Spacer()
             Group {
-                Text(L("%@ files", Fmt.count(run.files)))
+                Text("\(Fmt.count(run.files)) files")
                 Text(Fmt.bytes(run.bytes))
-                if run.deletes > 0 { Text(L("%d deleted", run.deletes)) }
-                if run.conflicts > 0 { Text(L("%d conflicts", run.conflicts)).foregroundStyle(Brand.orange) }
+                if run.deletes > 0 { Text("\(run.deletes) deleted") }
+                if run.conflicts > 0 { Text("\(run.conflicts) conflicts").foregroundStyle(Brand.orange) }
             }
             .font(PDFont.numbers(11.5))
             .foregroundStyle(Theme.textSecondary)

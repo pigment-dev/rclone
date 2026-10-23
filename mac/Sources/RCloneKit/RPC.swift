@@ -101,10 +101,10 @@ public enum ClientError: Error, LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .notConnected: return L("The sync service isn't connected.")
-        case .timeout(let m): return L("The sync service didn't answer %@ in time.", m)
-        case .connectionClosed: return L("The connection to the sync service closed.")
-        case .decoding(let m): return L("Unexpected reply from the sync service: %@", m)
+        case .notConnected: return "The sync service isn't connected."
+        case .timeout(let m): return "The sync service didn't answer \(m) in time."
+        case .connectionClosed: return "The connection to the sync service closed."
+        case .decoding(let m): return "Unexpected reply from the sync service: \(m)"
         case .socket(let m): return m
         }
     }

@@ -61,7 +61,7 @@ struct ActionCenterView: View {
             HStack(spacing: 8) {
                 Image(systemName: symbol).font(.system(size: 11, weight: .bold)).foregroundStyle(tint)
                 SectionLabel(title)
-                Text(verbatim: Fmt.digits("\(count)")).font(PDFont.mono(10.5)).foregroundStyle(Theme.textMuted)
+                Text("\(count)").font(PDFont.mono(10.5)).foregroundStyle(Theme.textMuted)
                     .padding(.horizontal, 7).padding(.vertical, 1).background(Capsule().fill(Theme.track))
             }
             if count == 0 {

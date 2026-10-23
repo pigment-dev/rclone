@@ -2,37 +2,9 @@ import Foundation
 
 /// Looks up a localized string in the app bundle (String Catalog compiled by build-app.sh).
 public func L(_ key: String) -> String { NSLocalizedString(key, bundle: .main, comment: "") }
-/// Format strings: numbers come out in Persian digits when the UI is Persian (`Fmt.locale`).
-public func L(_ key: String, _ args: CVarArg...) -> String { String(format: L(key), locale: Fmt.locale, arguments: args) }
+public func L(_ key: String, _ args: CVarArg...) -> String { String(format: L(key), arguments: args) }
 
 public enum Fmt {
-    /// True when the app is showing its Persian localization (decided by the bundle, i.e. AppleLanguages).
-    public static let isPersian: Bool = Bundle.main.preferredLocalizations.first?.hasPrefix("fa") == true
-
-    /// Locale for numbers in formatted strings: Persian when the UI is Persian, otherwise nil (plain ASCII digits).
-    public static let locale: Locale? = isPersian ? Locale(identifier: "fa_IR") : nil
-
-    /// Separator for short inline lists ("a, b, c"); Persian uses its own comma.
-    public static var listSeparator: String { isPersian ? "، " : ", " }
-
-    /// Rewrites ASCII digits and separators as Persian ones when the UI is Persian. Only for strings
-    /// that are purely numeric output (sizes, counts, durations), never for paths, names or versions.
-    public static func digits(_ s: String) -> String {
-        guard isPersian else { return s }
-        var out = ""
-        let chars = Array(s)
-        for (i, c) in chars.enumerated() {
-            if let d = c.wholeNumberValue, c.isASCII { out.append(Character(UnicodeScalar(0x06F0 + d)!)); continue }
-            let prevDigit = i > 0 && chars[i - 1].isASCII && chars[i - 1].isNumber
-            let nextDigit = i + 1 < chars.count && chars[i + 1].isASCII && chars[i + 1].isNumber
-            if c == ".", prevDigit, nextDigit { out.append("\u{066B}"); continue }
-            if c == ",", prevDigit, nextDigit { out.append("\u{066C}"); continue }
-            if c == "%" { out.append("\u{066A}"); continue }
-            out.append(c)
-        }
-        return out
-    }
-
     /// Google Drive "Computers" virtual paths (see the daemon's engine/remote.go):
     /// "@computers" and "@computer:<folderID>:<name>/sub".
     public static func computer(_ p: String) -> (id: String, name: String, sub: String)? {
@@ -47,8 +19,8 @@ public enum Fmt {
 
     /// Remote path as shown to people: "Backups/Projects", "Computers/My Mac/Desktop".
     public static func remote(_ p: String) -> String {
-        if p == "@computers" { return L("Computers") }
-        if let c = computer(p) { return L("Computers") + "/" + c.name + (c.sub.isEmpty ? "" : "/" + c.sub) }
+        if p == "@computers" { return "Computers" }
+        if let c = computer(p) { return "Computers/" + c.name + (c.sub.isEmpty ? "" : "/" + c.sub) }
         return p
     }
 
@@ -58,9 +30,9 @@ public enum Fmt {
         var v = Double(max(0, value))
         var i = 0
         while v >= 1000, i < units.count - 1 { v /= 1000; i += 1 }
-        if i == 0 { return digits("\(Int(v)) B") }
-        if v >= 100 { return digits("\(Int(v.rounded())) \(units[i])") }
-        return digits(String(format: "%.1f %@", v, units[i]))
+        if i == 0 { return "\(Int(v)) B" }
+        if v >= 100 { return "\(Int(v.rounded())) \(units[i])" }
+        return String(format: "%.1f %@", v, units[i])
     }
 
     public static func speed(_ bytesPerSec: Double) -> String { bytes(Int64(bytesPerSec)) + "/s" }
@@ -69,13 +41,13 @@ public enum Fmt {
     public static func eta(_ seconds: Double?) -> String {
         guard let seconds, seconds.isFinite, seconds >= 0, seconds < 365 * 86400 else { return "—" }
         let s = Int(seconds.rounded())
-        if s < 60 { return L("%ds", s) }
-        if s < 3600 { return L("%dm %02ds", s / 60, s % 60) }
-        if s < 86400 { return L("%dh %02dm", s / 3600, (s % 3600) / 60) }
-        return L("%dd %dh", s / 86400, (s % 86400) / 3600)
+        if s < 60 { return "\(s)s" }
+        if s < 3600 { return "\(s / 60)m \(String(format: "%02d", s % 60))s" }
+        if s < 86400 { return "\(s / 3600)h \(String(format: "%02d", (s % 3600) / 60))m" }
+        return "\(s / 86400)d \((s % 86400) / 3600)h"
     }
 
-    public static func percent(_ value: Double) -> String { digits("\(Int(max(0, min(100, value)).rounded(.down)))%") }
+    public static func percent(_ value: Double) -> String { "\(Int(max(0, min(100, value)).rounded(.down)))%" }
 
     public static func count(_ value: Int64) -> String {
         let f = NumberFormatter()
@@ -83,24 +55,24 @@ public enum Fmt {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.usesGroupingSeparator = true
         f.groupingSeparator = ","
-        return digits(f.string(from: NSNumber(value: value)) ?? "\(value)")
+        return f.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
     /// "1.2 GB of 4.0 GB"
     public static func bytesOfTotal(_ p: SyncProgress) -> String {
-        p.totalBytes > 0 ? L("%@ of %@", bytes(p.bytes), bytes(p.totalBytes)) : bytes(p.bytes)
+        p.totalBytes > 0 ? "\(bytes(p.bytes)) of \(bytes(p.totalBytes))" : bytes(p.bytes)
     }
 
     /// "120 of 900 files"
     public static func filesOfTotal(_ p: SyncProgress) -> String {
-        p.totalFiles > 0 ? L("%@ of %@ files", count(p.files), count(p.totalFiles)) : L("%@ files", count(p.files))
+        p.totalFiles > 0 ? "\(count(p.files)) of \(count(p.totalFiles)) files" : "\(count(p.files)) files"
     }
 
     /// One-line row summary: "1.2 GB of 4.0 GB · 120 of 900 files · 3.1 MB/s · 2m 10s left"
     public static func progressLine(_ p: SyncProgress) -> String {
         var parts = [bytesOfTotal(p), filesOfTotal(p)]
         if p.speed > 0 { parts.append(speed(p.speed)) }
-        if let eta = p.eta, eta > 0 { parts.append(L("%@ left", self.eta(eta))) }
+        if let eta = p.eta, eta > 0 { parts.append(self.eta(eta) + " left") }
         return parts.joined(separator: " · ")
     }
 
@@ -109,12 +81,12 @@ public enum Fmt {
         guard let date else { return "—" }
         let delta = date.timeIntervalSince(now)
         let a = abs(delta)
-        let past = delta < 0
-        if a < 45 { return past ? L("just now") : L("in a moment") }
-        if a < 3600 { let n = Int((a / 60).rounded()); return past ? L("%d min ago", n) : L("in %d min", n) }
-        if a < 86400 { let n = Int((a / 3600).rounded()); return past ? L("%d h ago", n) : L("in %d h", n) }
-        let n = Int((a / 86400).rounded())
-        return past ? L("%d d ago", n) : L("in %d d", n)
+        let text: String
+        if a < 45 { return delta < 0 ? "just now" : "in a moment" }
+        else if a < 3600 { text = "\(Int((a / 60).rounded())) min" }
+        else if a < 86400 { text = "\(Int((a / 3600).rounded())) h" }
+        else { text = "\(Int((a / 86400).rounded())) d" }
+        return delta < 0 ? "\(text) ago" : "in \(text)"
     }
 
     public static func relative(_ rfc3339: String?, now: Date = Date()) -> String { relative(RFC3339.date(rfc3339), now: now) }
@@ -122,7 +94,6 @@ public enum Fmt {
     public static func clock(_ rfc3339: String?) -> String {
         guard let d = RFC3339.date(rfc3339) else { return "—" }
         let f = DateFormatter()
-        if let locale { f.locale = locale }
         f.dateFormat = Calendar.current.isDateInToday(d) ? "HH:mm:ss" : "MMM d, HH:mm"
         return f.string(from: d)
     }
@@ -149,7 +120,7 @@ public extension JobStatus {
         switch state {
         case .idle:
             if let last = lastRun {
-                if last.ok { return .init(title: L("Up to date"), detail: L("Synced %@", Fmt.relative(last.endedAt ?? last.startedAt)), symbol: "checkmark.circle.fill", tone: .success) }
+                if last.ok { return .init(title: L("Up to date"), detail: L("Synced") + " " + Fmt.relative(last.endedAt ?? last.startedAt), symbol: "checkmark.circle.fill", tone: .success) }
                 return .init(title: L("Last run failed"), detail: last.error, symbol: "exclamationmark.triangle.fill", tone: .danger)
             }
             return .init(title: L("Idle"), detail: L("Never synced"), symbol: "circle.dashed", tone: .neutral)

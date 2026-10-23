@@ -257,7 +257,7 @@ struct WizardView: View {
             VStack(alignment: .leading, spacing: 10) {
                 RemoteBrowser(accountID: job.accountId, path: $job.remotePath).frame(height: extraFolders.isEmpty ? 360 : 300)
                 if !extraFolders.isEmpty {
-                    Label(L("Each folder goes into its own subfolder here: %@", plan.map { "/" + Fmt.remote($0.remote) }.joined(separator: Fmt.listSeparator)), systemImage: "folder.badge.gearshape")
+                    Label(L("Each folder goes into its own subfolder here: %@", plan.map { "/" + Fmt.remote($0.remote) }.joined(separator: ", ")), systemImage: "folder.badge.gearshape")
                         .font(PDFont.text(12)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -273,7 +273,7 @@ struct WizardView: View {
                     LabeledField(L("%d jobs will be created", plan.count)) {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(plan, id: \.local) { item in
-                                Text(verbatim: "\(Fmt.path(item.local))  →  /\(Fmt.remote(item.remote))").font(PDFont.mono(11.5, .medium)).foregroundStyle(Theme.textSecondary)
+                                Text("\(Fmt.path(item.local))  →  /\(Fmt.remote(item.remote))").font(PDFont.mono(11.5, .medium)).foregroundStyle(Theme.textSecondary)
                             }
                         }
                     }
@@ -373,7 +373,7 @@ struct PermissionRow: View {
             case .denied:
                 VStack(alignment: .trailing, spacing: 4) {
                     Pill(text: L("Off"), symbol: "xmark", color: Theme.textMuted)
-                    Button(LocalizedStringKey(actionTitle == "Allow" ? "Open Settings" : actionTitle), action: action).buttonStyle(.link).font(PDFont.text(11.5, .semibold))
+                    Button(actionTitle == "Allow" ? "Open Settings" : actionTitle, action: action).buttonStyle(.link).font(PDFont.text(11.5, .semibold))
                 }
             case .unknown: Button(LocalizedStringKey(actionTitle), action: action).pdSecondary(large: false)
             }
@@ -446,14 +446,14 @@ struct PreviewPanel: View {
                 }
                 .pdGlassContainer(spacing: 12)
                 if r.deletes > 0, job.safety.maxDeletePercent > 0 {
-                    Label(L("Deletions are guarded: a run that would delete more than %d%% of files stops and asks first.", job.safety.maxDeletePercent), systemImage: "shield.lefthalf.filled")
+                    Label("Deletions are guarded: a run that would delete more than \(job.safety.maxDeletePercent)% of files stops and asks first.", systemImage: "shield.lefthalf.filled")
                         .font(PDFont.text(12)).foregroundStyle(Theme.textSecondary)
                 }
                 Picker("List", selection: $tab) {
-                    Text(L("New (%d)", r.sample.adds.count)).tag(0)
-                    Text(L("Updated (%d)", r.sample.updates.count)).tag(1)
-                    Text(L("Deleted (%d)", r.sample.deletes.count)).tag(2)
-                    Text(L("Skipped (%d)", r.sample.excluded.count)).tag(3)
+                    Text("New (\(r.sample.adds.count))").tag(0)
+                    Text("Updated (\(r.sample.updates.count))").tag(1)
+                    Text("Deleted (\(r.sample.deletes.count))").tag(2)
+                    Text("Skipped (\(r.sample.excluded.count))").tag(3)
                 }
                 .pickerStyle(.segmented).labelsHidden()
                 sampleList(r)

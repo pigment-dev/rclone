@@ -128,7 +128,7 @@ struct AddAccountFlow: View {
                 SectionLabel(showAll ? "All providers" : "Popular")
                 Spacer()
                 if model.providers.contains(where: { !$0.popular }) {
-                    Button(showAll ? L("Show popular") : L("Show all %d", model.providers.count)) { withAnimation { showAll.toggle() } }
+                    Button(showAll ? "Show popular" : "Show all \(model.providers.count)") { withAnimation { showAll.toggle() } }
                         .buttonStyle(.link).font(PDFont.text(12, .semibold))
                 }
                 if let onCancel { Button("Cancel", action: onCancel).buttonStyle(.link).font(PDFont.text(12, .semibold)) }
@@ -142,7 +142,7 @@ struct AddAccountFlow: View {
                         VStack(spacing: 10) {
                             ProviderIcon(id: p.id, size: 44)
                             Text(p.name).font(PDFont.text(13, .semibold)).foregroundStyle(Theme.text).lineLimit(1)
-                            Text(categoryTitle(p.category)).font(PDFont.mono(9.5)).textCase(.uppercase).pdTracking(1).foregroundStyle(Theme.textMuted)
+                            Text(categoryTitle(p.category)).font(PDFont.mono(9.5)).textCase(.uppercase).tracking(1).foregroundStyle(Theme.textMuted)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 16)
                         .contentShape(Rectangle())
@@ -194,7 +194,7 @@ struct AddAccountFlow: View {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(Array(oauthSteps(p).enumerated()), id: \.offset) { i, text in
                             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text(verbatim: Fmt.digits("\(i + 1)")).font(PDFont.numbers(11)).foregroundStyle(.white)
+                                Text("\(i + 1)").font(PDFont.numbers(11)).foregroundStyle(.white)
                                     .frame(width: 18, height: 18).background(Circle().fill(Brand.orange))
                                 Text(text).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
                             }
@@ -208,7 +208,7 @@ struct AddAccountFlow: View {
                 HStack {
                     Spacer()
                     Button { Task { await start(p) } } label: {
-                        Label(p.auth == .oauth ? L("Sign in with %@", shortName(p)) : L("Connect"), systemImage: p.auth == .oauth ? "safari" : "link")
+                        Label(p.auth == .oauth ? L("Sign in with \(shortName(p))") : L("Connect"), systemImage: p.auth == .oauth ? "safari" : "link")
                             .padding(.horizontal, 6)
                     }
                     .pdPrimary()
@@ -249,7 +249,7 @@ struct AddAccountFlow: View {
     }
 
     private func oauthSteps(_ p: Provider) -> [String] {
-        [L("Click the button below. Your browser opens the %@ sign-in page.", shortName(p)),
+        [L("Click the button below. Your browser opens the \(shortName(p)) sign-in page."),
          L("Sign in and allow access. If the browser warns about an unverified app, choose Advanced and continue."),
          L("Come back here. The account is added by itself, and the sign-in token is stored encrypted on this Mac.")]
     }
@@ -465,7 +465,6 @@ extension Array {
 
 struct AccountsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(Prefs.self) private var prefs
     @Environment(Router.self) private var router
     @State private var adding = false
     @State private var testing: Set<String> = []
@@ -507,14 +506,13 @@ struct AccountsView: View {
             .frame(width: 720, height: 600)
             .background(Backdrop())
             .environment(model)
-            .environment(\.layoutDirection, prefs.layoutDirection)
         }
         .sheet(isPresented: Binding(get: { router.reconnectAccountID != nil }, set: { if !$0 { router.reconnectAccountID = nil } })) {
             if let acc = model.account(router.reconnectAccountID) {
                 VStack(alignment: .leading, spacing: 16) {
                     HStack(spacing: 12) {
                         ProviderIcon(id: acc.provider, size: 40)
-                        Text(L("Reconnect %@", acc.name)).font(PDFont.display(22, .black)).foregroundStyle(Theme.text)
+                        Text("Reconnect \(acc.name)").font(PDFont.display(22, .black)).foregroundStyle(Theme.text)
                     }
                     ScrollView {
                         AddAccountFlow(onDone: { _ in router.reconnectAccountID = nil; Task { await model.refreshActions() } },
@@ -525,7 +523,6 @@ struct AccountsView: View {
                 .frame(width: 620, height: 460)
                 .background(Backdrop())
                 .environment(model)
-                .environment(\.layoutDirection, prefs.layoutDirection)
             }
         }
         .alert("Rename account", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
@@ -537,10 +534,10 @@ struct AccountsView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .confirmationDialog(Text(L("Remove %@?", removing?.name ?? "")), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+        .confirmationDialog("Remove \(removing?.name ?? "")?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Remove account", role: .destructive) { if let a = removing { Task { await remove(a, force: false) } } }
             let used = model.jobs.filter { $0.accountId == removing?.id }.count
-            if used > 0 { Button(L("Remove it and its %d jobs", used), role: .destructive) { if let a = removing { Task { await remove(a, force: true) } } } }
+            if used > 0 { Button("Remove it and its \(used) jobs", role: .destructive) { if let a = removing { Task { await remove(a, force: true) } } } }
         } message: {
             Text("Files in the cloud are not deleted. Jobs that use this account stop syncing.")
         }
@@ -561,9 +558,9 @@ struct AccountsView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ProgressTrack(fraction: q.usedFraction ?? 0, tint: (q.usedFraction ?? 0) > 0.9 ? Brand.red : ProviderIcon(id: acc.provider).color, height: 7)
                     HStack {
-                        Text(L("%@ used", Fmt.bytes(used))).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textSecondary)
+                        Text(Fmt.bytes(used) + " " + L("used")).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textSecondary)
                         Spacer()
-                        if let free = q.free { Text(L("%@ free", Fmt.bytes(free))).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textMuted) }
+                        if let free = q.free { Text(Fmt.bytes(free) + " " + L("free")).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textMuted) }
                         if let total = q.total { Text("/ " + Fmt.bytes(total)).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textMuted) }
                     }
                 }
@@ -572,7 +569,7 @@ struct AccountsView: View {
             }
             if let e = acc.error { Text(e).font(PDFont.text(11.5)).foregroundStyle(Brand.red).lineLimit(2) }
             if let r = results[acc.id] {
-                Label(r.ok ? L("Connection works") + (r.latencyMs.map { " · " + L("%d ms", $0) } ?? "") : (r.error ?? L("Test failed")),
+                Label(r.ok ? L("Connection works") + (r.latencyMs.map { " · \($0) ms" } ?? "") : (r.error ?? L("Test failed")),
                       systemImage: r.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
                     .font(PDFont.text(12)).foregroundStyle(r.ok ? Brand.green : Brand.red)
             }
@@ -585,7 +582,7 @@ struct AccountsView: View {
                     Button { router.reconnectAccountID = acc.id } label: { Label("Reconnect", systemImage: "arrow.triangle.2.circlepath") }.pdPrimary()
                 }
                 Spacer()
-                Text(L("%d jobs", model.jobs.filter { $0.accountId == acc.id }.count)).font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                Text("\(model.jobs.filter { $0.accountId == acc.id }.count) jobs").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
                 Menu {
                     Button("Rename…") { newName = acc.name; renaming = acc }
                     Button("Refresh storage") { Task { await model.perform { _ = try await $0.call("accounts.quota", IDParams(acc.id), as: QuotaResult.self) }; await model.refreshAccounts() } }

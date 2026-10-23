@@ -179,7 +179,7 @@ struct RemoteBrowser: View {
             TextField("Folder name", text: $newFolder)
             Button("Create") { Task { await mkdir() } }
             Button("Cancel", role: .cancel) {}
-        } message: { Text(L("Created inside /%@", Fmt.remote(current))) }
+        } message: { Text("Created inside /\(Fmt.remote(current))") }
     }
 
     private var crumbs: [(name: String, path: String)] {
@@ -275,7 +275,7 @@ struct DirectionEditor: View {
                 Text(job.deletePolicy.explanation).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
                 if job.deletePolicy == .archive {
                     Stepper(value: $job.archiveRetentionDays, in: 1...3650) {
-                        Text(L("Keep archived files for %d days", job.archiveRetentionDays)).font(PDFont.text(13))
+                        Text("Keep archived files for \(job.archiveRetentionDays) days").font(PDFont.text(13))
                     }
                 }
             }
@@ -292,7 +292,7 @@ struct DirectionEditor: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Safety")
                 Stepper(value: $job.safety.maxDeletePercent, in: 0...100, step: 5) {
-                    Text(L("Stop and ask if a run would delete more than %d%% of files", job.safety.maxDeletePercent)).font(PDFont.text(13))
+                    Text("Stop and ask if a run would delete more than \(job.safety.maxDeletePercent)% of files").font(PDFont.text(13))
                 }
                 Toggle("Show a dry-run preview before the first real run", isOn: $job.safety.dryRunFirst)
                 Toggle("Compare checksums (slower, catches silent corruption)", isOn: $job.safety.checksum)
@@ -360,17 +360,17 @@ struct ScheduleEditor: View {
                     Text("Wait").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
                     Slider(value: Binding(get: { Double(triggers.debounceSec) }, set: { triggers.debounceSec = Int($0) }), in: 2...60, step: 1)
                         .tint(Brand.orange).frame(maxWidth: 220)
-                    Text(L("%d s after the last change", triggers.debounceSec)).font(PDFont.numbers(12.5)).foregroundStyle(Theme.text)
+                    Text("\(triggers.debounceSec) s after the last change").font(PDFont.numbers(12.5)).foregroundStyle(Theme.text)
                 }
             }
             ToggleRow(symbol: "timer", title: "On an interval", subtitle: "Every few minutes or every hour.", isOn: Binding(
                 get: { triggers.intervalMin != nil }, set: { triggers.intervalMin = $0 ? (triggers.intervalMin ?? 30) : nil })) {
                 HStack(spacing: 8) {
                     ForEach([5, 15, 30, 60, 180], id: \.self) { m in
-                        ChipButton(title: m == 60 ? L("Hourly") : m > 60 ? L("%d h", m / 60) : L("%d min", m), selected: triggers.intervalMin == m) { triggers.intervalMin = m }
+                        ChipButton(title: m == 60 ? L("Hourly") : m > 60 ? "\(m / 60) h" : "\(m) min", selected: triggers.intervalMin == m) { triggers.intervalMin = m }
                     }
                     Stepper(value: Binding(get: { triggers.intervalMin ?? 30 }, set: { triggers.intervalMin = $0 }), in: 1...1440) {
-                        Text(L("%d min", triggers.intervalMin ?? 30)).font(PDFont.numbers(12.5))
+                        Text("\(triggers.intervalMin ?? 30) min").font(PDFont.numbers(12.5))
                     }
                 }
             }
@@ -406,10 +406,10 @@ struct ScheduleEditor: View {
 
     static func summary(_ t: Triggers) -> String {
         var parts: [String] = []
-        if t.onChange { parts.append(L("On change (%d s)", t.debounceSec)) }
+        if t.onChange { parts.append(L("On change") + " (\(t.debounceSec)s)") }
         if let i = t.intervalMin { parts.append(i == 60 ? L("Hourly") : i % 60 == 0 ? L("Every %d h", i / 60) : L("Every %d min", i)) }
-        if let d = t.daily { parts.append(L("Daily at %@", Fmt.digits(d))) }
-        if let w = t.weekly { parts.append(L(weekdays[max(0, min(6, w.day - 1))]) + " " + Fmt.digits(w.time)) }
+        if let d = t.daily { parts.append(L("Daily at") + " " + d) }
+        if let w = t.weekly { parts.append(L(weekdays[max(0, min(6, w.day - 1))]) + " " + w.time) }
         if let c = t.cron { parts.append("cron " + c) }
         if t.onWake { parts.append(L("On wake")) }
         if parts.isEmpty { parts.append(L("Manual only")) }
@@ -642,7 +642,7 @@ struct NetworkEditor: View {
                     Toggle("Pause when battery is below", isOn: Binding(get: { job.network.minBatteryPercent != nil }, set: { job.network.minBatteryPercent = $0 ? (job.network.minBatteryPercent ?? 20) : nil }))
                     if job.network.minBatteryPercent != nil {
                         Stepper(value: Binding(get: { job.network.minBatteryPercent ?? 20 }, set: { job.network.minBatteryPercent = $0 }), in: 5...95, step: 5) {
-                            Text(verbatim: Fmt.digits("\(job.network.minBatteryPercent ?? 20)%")).font(PDFont.numbers(12.5))
+                            Text("\(job.network.minBatteryPercent ?? 20)%").font(PDFont.numbers(12.5))
                         }
                     }
                 }
@@ -651,8 +651,8 @@ struct NetworkEditor: View {
                 SectionLabel("Bandwidth & parallelism")
                 LimitRow(title: "Limit upload to", value: $job.limits.bwUpKBps)
                 LimitRow(title: "Limit download to", value: $job.limits.bwDownKBps)
-                Stepper(value: $job.limits.transfers, in: 1...32) { Text(L("%d files at a time", job.limits.transfers)).font(PDFont.text(13)) }
-                Stepper(value: $job.limits.checkers, in: 1...64) { Text(L("%d parallel checks", job.limits.checkers)).font(PDFont.text(13)) }
+                Stepper(value: $job.limits.transfers, in: 1...32) { Text("\(job.limits.transfers) files at a time").font(PDFont.text(13)) }
+                Stepper(value: $job.limits.checkers, in: 1...64) { Text("\(job.limits.checkers) parallel checks").font(PDFont.text(13)) }
             }
         }
         .toggleStyle(PDSwitchStyle())
@@ -698,7 +698,7 @@ struct TokenList: View {
                 TextField(LocalizedStringKey(placeholder), text: $draft).textFieldStyle(.roundedBorder).onSubmit(add)
                 Button("Add", action: add).disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 if let ssid = SystemMonitor.currentSSID(), !tokens.contains(ssid) {
-                    Button(L("Add “%@”", ssid)) { tokens.append(ssid) }.buttonStyle(.link)
+                    Button("Add “\(ssid)”") { tokens.append(ssid) }.buttonStyle(.link)
                 }
             }
         }

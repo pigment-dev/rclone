@@ -56,7 +56,6 @@ struct PigmentDevRCloneApp: App {
                 .environment(env.prefs)
                 .environment(env.router)
                 .environment(\.layoutDirection, env.prefs.layoutDirection)
-                .environment(\.locale, env.prefs.locale)
         }
         .defaultSize(width: 1120, height: 760)
         .windowToolbarStyle(.unified(showsTitle: false))
@@ -78,7 +77,6 @@ struct PigmentDevRCloneApp: App {
                 .environment(env.prefs)
                 .environment(env.router)
                 .environment(\.layoutDirection, env.prefs.layoutDirection)
-                .environment(\.locale, env.prefs.locale)
         } label: {
             MenuBarLabel(icon: env.icon, router: env.router)
         }
@@ -90,7 +88,6 @@ struct PigmentDevRCloneApp: App {
                 .environment(env.prefs)
                 .environment(env.router)
                 .environment(\.layoutDirection, env.prefs.layoutDirection)
-                .environment(\.locale, env.prefs.locale)
                 .frame(width: 720, height: 600)
         }
     }

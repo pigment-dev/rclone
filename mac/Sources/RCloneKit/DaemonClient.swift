@@ -147,7 +147,7 @@ public actor DaemonClient {
                 // Connection ended.
                 connection = nil
                 failAll(ClientError.connectionClosed)
-                if !stopped { setState(.disconnected(L("The sync service stopped responding."))) }
+                if !stopped { setState(.disconnected("The sync service stopped responding.")) }
             } catch {
                 connection?.close()
                 connection = nil

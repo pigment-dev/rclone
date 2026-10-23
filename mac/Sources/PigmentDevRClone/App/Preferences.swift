@@ -45,7 +45,9 @@ final class Prefs {
         showMenuBarIcon = d.bool(forKey: "showMenuBarIcon")
         menuBarText = MenuIconState.TextMode(rawValue: d.string(forKey: "menuBarText") ?? "none") ?? .none
         appearance = d.string(forKey: "appearance") ?? "system"
-        language = d.string(forKey: "language") ?? "system"
+        // English only: drop a language override left by earlier builds.
+        language = "system"
+        d.removeObject(forKey: "AppleLanguages")
         startMinimised = d.bool(forKey: "startMinimised")
         autoCheckUpdates = d.bool(forKey: "autoCheckUpdates")
         updateChannel = d.string(forKey: "updateChannel") ?? "stable"
@@ -81,15 +83,8 @@ final class Prefs {
         if language == "system" { d.removeObject(forKey: "AppleLanguages") } else { d.set([language], forKey: "AppleLanguages") }
     }
 
-    /// Follows the localization the app is actually showing (a language change applies after relaunch,
-    /// so flipping the layout before the strings change would mix RTL layout with English text).
-    var layoutDirection: LayoutDirection {
-        let lang = Bundle.main.preferredLocalizations.first ?? "en"
-        return Locale.Language(identifier: lang).characterDirection == .rightToLeft ? .rightToLeft : .leftToRight
-    }
-
-    /// Locale for SwiftUI formatting (dates, pickers, numbers): Persian when the UI is Persian.
-    var locale: Locale { Fmt.locale ?? .current }
+    /// The app is English only, so the layout is always left to right.
+    var layoutDirection: LayoutDirection { .leftToRight }
 
     /// True when the current time falls inside quiet hours.
     func isQuiet(now: Date = Date()) -> Bool {
