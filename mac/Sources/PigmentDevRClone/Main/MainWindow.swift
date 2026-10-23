@@ -1,3 +1,4 @@
+import AppKit
 import RCloneKit
 import SwiftUI
 
@@ -27,6 +28,7 @@ struct MainWindow: View {
         .frame(minWidth: 920, minHeight: 620)
         .tint(Brand.orange)
         .toolbarBackground(.hidden, for: .windowToolbar)
+        .toolbar { HeaderLogo() }
         .sheet(isPresented: $router.showWizard) {
             WizardView(firstRun: router.wizardFirstRun)
                 .environment(model).environment(prefs).environment(router)
@@ -55,17 +57,6 @@ struct MainWindow: View {
                         .listItemTint(.fixed(Brand.orange))
                         .tag(item)
                 }
-            } header: {
-                HStack(spacing: 10) {
-                    BrandMark(size: 26)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("PigmentDev").font(PDFont.text(11, .medium)).foregroundStyle(Theme.textSecondary)
-                        Text("rClone").font(PDFont.display(17, .black)).foregroundStyle(Theme.text)
-                    }
-                }
-                .textCase(nil)
-                .padding(.bottom, 12)
-                .padding(.top, 4)
             }
         }
         .listStyle(.sidebar)
@@ -148,6 +139,37 @@ struct Page<Content: View>: View {
                 .frame(maxWidth: .infinity)
         }
         .scrollContentBackground(.hidden)
+    }
+}
+
+/// The PigmentDev rClone logo in the window's title bar, fixed above every page.
+struct HeaderLogo: ToolbarContent {
+    var body: some ToolbarContent {
+        if #available(macOS 26, *) {
+            ToolbarItem(placement: .navigation) { BrandLogoImage() }.sharedBackgroundVisibility(.hidden)
+        } else {
+            ToolbarItem(placement: .navigation) { BrandLogoImage() }
+        }
+    }
+}
+
+struct BrandLogoImage: View {
+    @Environment(\.colorScheme) private var scheme
+    var height: CGFloat = 20
+
+    var body: some View {
+        let name = scheme == .dark ? "logo-horizontal-dark" : "logo-horizontal"
+        if let url = Bundle.main.url(forResource: name, withExtension: "png"), let image = NSImage(contentsOf: url) {
+            Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                .frame(height: height)
+                .padding(.leading, 14)
+                .accessibilityLabel("PigmentDev rClone")
+        } else {
+            HStack(spacing: 6) {
+                BrandMark(size: height)
+                Text("PigmentDev rClone").font(PDFont.display(14, .black)).foregroundStyle(Theme.text)
+            }
+        }
     }
 }
 

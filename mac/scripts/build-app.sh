@@ -38,6 +38,8 @@ if [ -n "${PDRCLONE_PUBLIC_KEY:-}" ]; then /usr/libexec/PlistBuddy -c "Set :PDRC
 
 # Fonts (Red Hat, OFL) — registered at launch with CTFontManager.
 cp Resources/Fonts/*.ttf Resources/Fonts/OFL.txt "$APP/Contents/Resources/Fonts/" 2>/dev/null || true
+# Header logo (light and dark).
+cp Resources/Brand/*.png "$APP/Contents/Resources/" 2>/dev/null || true
 
 # Strings: compile the String Catalog into .lproj/Localizable.strings.
 if [ -f Resources/Localizable.xcstrings ]; then

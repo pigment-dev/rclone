@@ -101,18 +101,23 @@ struct LogsView: View {
     private var table: some View {
         Table(shown, selection: $selection) {
             TableColumn("Time") { l in Text(Fmt.clock(l.ts)).font(PDFont.numbers(11.5)).foregroundStyle(Theme.textSecondary) }
-                .width(min: 70, ideal: 110, max: 140)
+                .width(78)
             TableColumn("Level") { l in LevelBadge(level: l.level) }
-                .width(min: 60, ideal: 70, max: 80)
-            TableColumn("Job") { l in Text(model.job(l.jobId)?.name ?? "—").font(PDFont.text(12)).foregroundStyle(Theme.textSecondary).lineLimit(1) }
-                .width(min: 80, ideal: 140, max: 220)
+                .width(72)
+            TableColumn("Job") { l in Text(model.job(l.jobId)?.name ?? "—").font(PDFont.text(12)).foregroundStyle(Theme.textMuted).lineLimit(1) }
+                .width(min: 60, ideal: 110, max: 160)
             TableColumn("Message") { l in
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(l.msg).font(PDFont.text(12.5)).foregroundStyle(Theme.text).lineLimit(2)
-                    if let p = l.path { Text(p).font(PDFont.mono(10.5, .regular)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle) }
+                HStack(spacing: 8) {
+                    Text(l.msg).font(PDFont.text(12.5)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.tail)
+                    if let p = l.path {
+                        Text(p).font(PDFont.mono(10.5, .regular)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
+                    }
                 }
+                .help(l.msg + (l.path.map { "\n" + $0 } ?? ""))
             }
+            .width(min: 320, ideal: 640)
         }
+        .tableStyle(.inset(alternatesRowBackgrounds: false))
         .contextMenu(forSelectionType: LogLine.ID.self) { ids in
             Button("Copy") {
                 let text = shown.filter { ids.contains($0.id) }.map { "\($0.ts) [\($0.level.rawValue)] \($0.msg)" + ($0.path.map { " \($0)" } ?? "") }.joined(separator: "\n")
@@ -174,7 +179,7 @@ struct LevelBadge: View {
     var color: Color {
         switch level {
         case .debug: return Theme.textMuted
-        case .info: return Brand.cobalt
+        case .info: return Color(light: 0x2141F5, dark: 0x8FA2FF)
         case .notice: return Brand.green
         case .warn: return Color(light: 0xC98A00, dark: 0xFFC72C)
         case .error: return Brand.red
