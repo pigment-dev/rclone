@@ -131,6 +131,8 @@ struct GeneralSettings: View {
     @State private var loginItem = LoginItem.isEnabled
     @State private var loginError: String?
     @State private var updater = AppEnvironment.shared.updater
+    @AppStorage(Surface.styleKey) private var surfaceStyle = "glass"
+    @AppStorage(Surface.frostKey) private var glassFrost = 0.5
 
     var body: some View {
         @Bindable var prefs = prefs
@@ -156,6 +158,20 @@ struct GeneralSettings: View {
                     Text("System").tag("system"); Text("Light").tag("light"); Text("Dark").tag("dark")
                 }
                 .pickerStyle(.segmented).fixedSize()
+                Picker("Window style", selection: $surfaceStyle) {
+                    Text("Glass").tag("glass"); Text("Flat").tag("flat")
+                }
+                .pickerStyle(.segmented).fixedSize()
+                if surfaceStyle == "glass" {
+                    HStack(spacing: 10) {
+                        Text("Blur").font(PDFont.text(13))
+                        Text("Clear").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                        Slider(value: $glassFrost, in: 0...1).frame(maxWidth: 220)
+                        Text("Frosted").font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                    }
+                }
+                Text(surfaceStyle == "glass" ? "Glass shows your desktop through a blur. Move the slider to make it clearer or more frosted." : "Flat uses solid light or dark colours, following the Theme above.")
+                    .font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
                 Picker("Language", selection: $prefs.language) {
                     Text("System").tag("system"); Text("English").tag("en"); Text("فارسی").tag("fa")
                 }

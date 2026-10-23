@@ -91,16 +91,25 @@ enum PDFont {
 
 // MARK: - Glass
 
-/// The one place Liquid Glass is used. macOS 26+: `.glassEffect`; older or Reduce Transparency: material/solid + hairline.
+/// Window surface preference (Settings › Appearance): "glass" shows the desktop through a blur,
+/// "flat" uses solid light/dark colours. `glassFrost` (0…1) goes from clear to heavily frosted.
+enum Surface {
+    static let styleKey = "surfaceStyle"
+    static let frostKey = "glassFrost"
+}
+
+/// The one place Liquid Glass is used. macOS 26+: `.glassEffect`; older: material. Flat style or
+/// Reduce Transparency: solid card + hairline. Glass is never tinted.
 struct PDGlassModifier<S: InsettableShape>: ViewModifier {
     var shape: S
-    var tint: Color?
     var interactive: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var scheme
+    @AppStorage(Surface.styleKey) private var style = "glass"
+    @AppStorage(Surface.frostKey) private var frost = 0.5
 
     func body(content: Content) -> some View {
-        if reduceTransparency {
+        if reduceTransparency || style == "flat" {
             content
                 .background(shape.fill(Theme.solidCard))
                 .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
@@ -108,25 +117,33 @@ struct PDGlassModifier<S: InsettableShape>: ViewModifier {
             content.glassEffect(glass, in: shape)
         } else {
             content
-                .background(shape.fill(.ultraThinMaterial))
-                .background(shape.fill((tint ?? .clear).opacity(0.10)))
+                .background(material(shape))
                 .overlay(shape.strokeBorder(Color.white.opacity(scheme == .dark ? 0.10 : 0.55), lineWidth: 0.75))
                 .shadow(color: .black.opacity(scheme == .dark ? 0.35 : 0.06), radius: 14, y: 6)
         }
     }
 
+    @ViewBuilder private func material(_ shape: S) -> some View {
+        switch frost {
+        case ..<0.25: shape.fill(.ultraThinMaterial)
+        case ..<0.5: shape.fill(.thinMaterial)
+        case ..<0.75: shape.fill(.regularMaterial)
+        default: shape.fill(.thickMaterial)
+        }
+    }
+
     @available(macOS 26, *)
     private var glass: Glass {
-        var g = Glass.regular
-        if let tint { g = g.tint(tint.opacity(0.22)) }
+        var g = frost < 0.25 ? Glass.clear : Glass.regular
         if interactive { g = g.interactive() }
         return g
     }
 }
 
 extension View {
+    /// `tint` is accepted for call-site compatibility but ignored: glass stays untinted.
     func pdGlass<S: InsettableShape>(in shape: S, tint: Color? = nil, interactive: Bool = false) -> some View {
-        modifier(PDGlassModifier(shape: shape, tint: tint, interactive: interactive))
+        modifier(PDGlassModifier(shape: shape, interactive: interactive))
     }
 
     func pdGlass(radius: CGFloat = Theme.cardRadius, tint: Color? = nil, interactive: Bool = false) -> some View {
@@ -330,24 +347,36 @@ struct ProviderIcon: View {
 }
 
 /// Soft, static backdrop that gives the glass something to refract. Drawn once; no animation.
+/// Window background: the blurred desktop (glass) or a solid colour (flat).
 struct Backdrop: View {
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @AppStorage(Surface.styleKey) private var style = "glass"
+    @AppStorage(Surface.frostKey) private var frost = 0.5
+
     var body: some View {
         ZStack {
-            Theme.backdrop
-            Canvas { ctx, size in
-                let w = size.width, h = size.height
-                ctx.addFilter(.blur(radius: min(w, h) * 0.18))
-                let o = scheme == .dark ? 0.20 : 0.16
-                ctx.fill(Path(ellipseIn: CGRect(x: w * 0.55, y: -h * 0.25, width: w * 0.6, height: h * 0.7)), with: .color(Brand.orange.opacity(o)))
-                ctx.fill(Path(ellipseIn: CGRect(x: -w * 0.15, y: h * 0.45, width: w * 0.55, height: h * 0.7)), with: .color(Brand.cobalt.opacity(o * 0.7)))
-                ctx.fill(Path(ellipseIn: CGRect(x: w * 0.30, y: h * 0.70, width: w * 0.35, height: h * 0.45)), with: .color(Brand.yellow.opacity(o * 0.55)))
+            if style == "flat" || reduceTransparency {
+                Theme.backdrop
+            } else {
+                BehindWindowBlur()
+                Theme.backdrop.opacity(0.15 + frost * 0.7)
             }
-            .drawingGroup()
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
     }
+}
+
+/// NSVisualEffectView blurring whatever is behind the window.
+struct BehindWindowBlur: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = .underWindowBackground
+        v.blendingMode = .behindWindow
+        v.state = .active
+        return v
+    }
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {}
 }
 
 struct EmptyState: View {
