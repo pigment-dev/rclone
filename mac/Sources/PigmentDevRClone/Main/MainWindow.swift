@@ -49,6 +49,7 @@ struct MainWindow: View {
             Section {
                 ForEach(SidebarItem.allCases) { item in
                     Label(LocalizedStringKey(item.title), systemImage: item.symbol)
+                        .labelStyle(SidebarLabelStyle())
                         .font(PDFont.text(13.5, .medium))
                         .badge(item == .actions ? model.attentionCount : 0)
                         .listItemTint(.fixed(Brand.orange))
@@ -147,5 +148,17 @@ struct Page<Content: View>: View {
                 .frame(maxWidth: .infinity)
         }
         .scrollContentBackground(.hidden)
+    }
+}
+
+/// Smaller sidebar icons in a fixed-width column, with room before the title.
+struct SidebarLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 10) {
+            configuration.icon
+                .font(.system(size: 12.5, weight: .medium))
+                .frame(width: 18, alignment: .center)
+            configuration.title
+        }
     }
 }
