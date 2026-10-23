@@ -72,6 +72,7 @@ struct AddAccountFlow: View {
     @State private var name = ""
     @State private var values: [String: String] = [:]
     @State private var showAdvanced = false
+    @State private var showAllOptions = false
     @State private var phase: Phase = .pick
     @State private var sessionID: String?
     @State private var answer = ""
@@ -207,12 +208,7 @@ struct AddAccountFlow: View {
                 }
                 HStack {
                     Spacer()
-                    Button { Task { await start(p) } } label: {
-                        Label(p.auth == .oauth ? L("Sign in with \(shortName(p))") : L("Connect"), systemImage: p.auth == .oauth ? "safari" : "link")
-                            .padding(.horizontal, 6)
-                    }
-                    .pdPrimary()
-                    .disabled(!formValid(p))
+                    signInButton(p)
                 }
                 if visibleFields.contains(where: \.advanced) {
                     DisclosureGroup(isExpanded: $showAdvanced) {
@@ -220,9 +216,28 @@ struct AddAccountFlow: View {
                             if p.auth == .oauth, p.fields.contains(where: { $0.name == "client_id" }) {
                                 OwnClientIDGuide(providerID: p.id)
                             }
-                            ForEach(visibleFields.filter(\.advanced)) { field in
+                            ForEach(keyAdvanced) { field in
                                 FieldInput(field: field, providerID: p.id, value: binding(field))
                             }
+                            if !otherAdvanced.isEmpty {
+                                DisclosureGroup(isExpanded: $showAllOptions) {
+                                    VStack(alignment: .leading, spacing: 14) {
+                                        ForEach(otherAdvanced) { field in
+                                            FieldInput(field: field, providerID: p.id, value: binding(field))
+                                        }
+                                    }
+                                    .padding(.top, 10)
+                                } label: {
+                                    Text(L("All rclone options (%d)", otherAdvanced.count))
+                                        .font(PDFont.text(12, .semibold)).foregroundStyle(Theme.textMuted)
+                                }
+                            }
+                            // The main button sits above this section; repeat it so a long form never strands you.
+                            HStack {
+                                Spacer()
+                                signInButton(p)
+                            }
+                            .padding(.top, 4)
                         }
                         .padding(.top, 10)
                     } label: {
@@ -234,6 +249,22 @@ struct AddAccountFlow: View {
         }
         .padding(20)
         .pdGlass(radius: 22)
+    }
+
+    /// Advanced options people actually change (own client ID, scope, root folder…); the rest are folded away.
+    private static let keyOptionNames: Set<String> = ["client_id", "client_secret", "scope", "root_folder_id", "team_drive",
+                                                       "service_account_file", "region", "shared_files", "shared_folders",
+                                                       "skip_shortcuts", "drive_id", "drive_type", "tenant"]
+    private var keyAdvanced: [Field] { visibleFields.filter { $0.advanced && Self.keyOptionNames.contains($0.name) } }
+    private var otherAdvanced: [Field] { visibleFields.filter { $0.advanced && !Self.keyOptionNames.contains($0.name) } }
+
+    private func signInButton(_ p: Provider) -> some View {
+        Button { Task { await start(p) } } label: {
+            Label(p.auth == .oauth ? L("Sign in with \(shortName(p))") : L("Connect"), systemImage: p.auth == .oauth ? "safari" : "link")
+                .padding(.horizontal, 6)
+        }
+        .pdPrimary()
+        .disabled(!formValid(p))
     }
 
     private func binding(_ field: Field) -> Binding<String> {

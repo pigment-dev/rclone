@@ -49,7 +49,7 @@ struct MenuBarView: View {
                 Text(model.isConnected ? "No sync jobs yet" : "Waiting for the sync service")
                     .font(PDFont.text(13, .semibold)).foregroundStyle(Theme.textSecondary)
                 if model.isConnected {
-                    Button("Add a sync job…") { router.addJob(firstRun: false) }.pdPrimary()
+                    Button("Add a sync job…") { Self.closePopover(); router.addJob(firstRun: false) }.pdPrimary()
                 }
             }
             .frame(maxWidth: .infinity)
@@ -117,7 +117,7 @@ struct MenuBarView: View {
             SettingsLink { Image(systemName: "gearshape") }
                 .pdSecondary(large: false)
                 .help("Settings")
-                .simultaneousGesture(TapGesture().onEnded { NSApp.activate(ignoringOtherApps: true) })
+                .simultaneousGesture(TapGesture().onEnded { Self.closePopover(); NSApp.activate(ignoringOtherApps: true) })
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
                 .pdSecondary(large: false)
                 .help("Quit PigmentDev rClone")
@@ -127,7 +127,15 @@ struct MenuBarView: View {
     private func open(_ item: SidebarItem, job: String? = nil) {
         router.selection = item
         if let job { router.selectedJobID = job }
+        Self.closePopover()
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Closes the menu bar popover (MenuBarExtra's window) when an action moves to another window.
+    static func closePopover() {
+        for w in NSApp.windows where w.isVisible && String(describing: type(of: w)).contains("MenuBarExtra") {
+            w.close()
+        }
     }
 }
