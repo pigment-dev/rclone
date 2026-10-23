@@ -1,0 +1,156 @@
+name: Bug report
+description: Something does not work as described in the docs.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. A diagnostics bundle (Settings > Advanced > Create diagnostics bundle) helps a lot. It redacts tokens, passwords and keys, but it does contain file paths, so look through it before you attach it.
+
+        Security problems: please do not use this form. Report them privately, see SECURITY.md.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I read the relevant help page and the troubleshooting guide (https://pigment-dev.github.io/rclone/help/).
+          required: false
+  - type: input
+    id: version
+    attributes:
+      label: PigmentDev rClone version
+      description: From About, or `pdrclone --version`.
+      placeholder: 1.0.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux (x86_64)
+        - Linux (arm64)
+        - Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: macos
+    attributes:
+      label: macOS version
+      description: Skip if you are on Linux or Windows.
+      options:
+        - Not macOS
+        - macOS 14 Sonoma
+        - macOS 15 Sequoia
+        - macOS 26 Tahoe
+        - macOS 27
+        - Other (say below)
+    validations:
+      required: false
+  - type: input
+    id: os-other
+    attributes:
+      label: Other OS details
+      description: Linux distribution and version, Windows version, or a macOS version not in the list.
+      placeholder: Ubuntu 24.04, systemd user unit
+    validations:
+      required: false
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      multiple: true
+      options:
+        - Google Drive
+        - Google Drive (Shared Drive)
+        - OneDrive Personal
+        - OneDrive Business / SharePoint
+        - Dropbox
+        - Box
+        - pCloud
+        - S3-compatible (AWS, R2, MinIO, Wasabi, ...)
+        - Backblaze B2 (native)
+        - Azure Blob
+        - Google Cloud Storage
+        - SFTP
+        - FTP / FTPS
+        - WebDAV / Nextcloud
+        - Mega
+        - Proton Drive
+        - Local / NAS
+        - Not provider related
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Install / Gatekeeper / updates
+        - First-run wizard
+        - Accounts / sign-in
+        - One-way sync
+        - Two-way sync / conflicts
+        - Filters / exclusions
+        - Schedules / triggers
+        - Network and power rules
+        - Action Center / notifications
+        - Logs / diagnostics
+        - Menu bar / UI
+        - CLI / daemon
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem. Include any error message exactly as shown.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a two-way job for ~/Sync/Work on Google Drive
+        2. Edit the same file on both sides
+        3. Run the job
+        4. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: job
+    attributes:
+      label: Job settings
+      description: Direction, delete policy, conflict policy, triggers, filters that matter. Remove anything private.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: Paste a few lines from the Logs view or `pdrclone logs`. Do not paste tokens or passwords.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Diagnostics and secrets
+      options:
+        - label: I attached a diagnostics bundle (or explained why I cannot).
+          required: false
+        - label: I checked that nothing I posted contains tokens, passwords, keys or other secrets.
+          required: true

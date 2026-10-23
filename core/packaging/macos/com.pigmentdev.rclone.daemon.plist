@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent registered by the app with SMAppService.agent(plistName:).
+  Ship at: PigmentDev rClone.app/Contents/Library/LaunchAgents/com.pigmentdev.rclone.daemon.plist
+  BundleProgram is relative to the app bundle.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.pigmentdev.rclone.daemon</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/pdrcloned</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>pdrcloned</string>
+		<string>run</string>
+	</array>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.pigmentdev.rclone</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>LowPriorityIO</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+</dict>
+</plist>

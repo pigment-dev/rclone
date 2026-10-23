@@ -1,0 +1,16 @@
+[Unit]
+Description=PigmentDev rClone sync daemon
+Documentation=https://github.com/pigment-dev/rclone
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pdrcloned run
+Restart=on-failure
+RestartSec=10
+Nice=10
+IOSchedulingClass=idle
+MemoryHigh=300M
+
+[Install]
+WantedBy=default.target

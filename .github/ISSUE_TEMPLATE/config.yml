@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas (GitHub Discussions)
+    url: https://github.com/pigment-dev/rclone/discussions
+    about: Ask how to do something, share a setup, or discuss an idea before opening an issue.
+  - name: Report a security vulnerability
+    url: https://github.com/pigment-dev/rclone/security/advisories/new
+    about: Please report security problems privately, not in a public issue.
+  - name: Help documentation
+    url: https://pigment.dev/docs/rclone/
+    about: Getting started, accounts, filters, troubleshooting and more.

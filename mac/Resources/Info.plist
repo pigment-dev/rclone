@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array><string>en</string><string>fa</string></array>
+	<key>CFBundleDisplayName</key>
+	<string>PigmentDev rClone</string>
+	<key>CFBundleName</key>
+	<string>PigmentDev rClone</string>
+	<key>CFBundleExecutable</key>
+	<string>PigmentDevRClone</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.pigmentdev.rclone</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<false/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSSupportsAutomaticTermination</key>
+	<false/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 PigmentDev · MIT License · Powered by rclone</string>
+	<key>NSLocationUsageDescription</key>
+	<string>PigmentDev rClone reads the name of your Wi-Fi network so sync rules like “only on Home Wi-Fi” work. macOS treats Wi-Fi names as location data. Your location is never read or stored.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>PigmentDev rClone reads the name of your Wi-Fi network so sync rules like “only on Home Wi-Fi” work. macOS treats Wi-Fi names as location data. Your location is never read or stored.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>PigmentDev rClone reads the name of your Wi-Fi network in the background so sync rules like “only on Home Wi-Fi” keep working. Your location is never read or stored.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.pigmentdev.rclone</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>pdrclone</string></array>
+		</dict>
+	</array>
+	<key>PDRClonePublicEDKey</key>
+	<string></string>
+</dict>
+</plist>

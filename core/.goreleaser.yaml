@@ -1,0 +1,91 @@
+# GoReleaser config for the daemon (pdrcloned) and CLI (pdrclone).
+# Run from core/:  goreleaser release --clean   (CI: .github/workflows/daemon.yml)
+version: 2
+
+project_name: pdrclone
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: pdrcloned
+    main: ./cmd/pdrcloned
+    binary: pdrcloned
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/pigment-dev/rclone/core/internal/version.Version={{ .Version }}
+      - -X github.com/pigment-dev/rclone/core/internal/version.Commit={{ .ShortCommit }}
+  - id: pdrclone
+    main: ./cmd/pdrclone
+    binary: pdrclone
+    env: [CGO_ENABLED=0]
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/pigment-dev/rclone/core/internal/version.Version={{ .Version }}
+      - -X github.com/pigment-dev/rclone/core/internal/version.Commit={{ .ShortCommit }}
+
+archives:
+  - id: default
+    ids: [pdrcloned, pdrclone]
+    name_template: "pdrclone_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - src: packaging/linux/pdrcloned.service
+        strip_parent: true
+      - src: packaging/macos/com.pigmentdev.rclone.daemon.plist
+        strip_parent: true
+
+nfpms:
+  - id: packages
+    package_name: pdrclone
+    ids: [pdrcloned, pdrclone]
+    vendor: PigmentDev
+    homepage: https://pigment.dev/products/rclone/
+    maintainer: PigmentDev <support@pigment.dev>
+    description: Lightweight cloud sync daemon and CLI (Google Drive, OneDrive, Dropbox, S3, SFTP…) powered by rclone.
+    license: MIT
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    contents:
+      - src: packaging/linux/pdrcloned.service
+        dst: /usr/lib/systemd/user/pdrcloned.service
+    scripts:
+      postinstall: packaging/linux/postinstall.sh
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: github
+  filters:
+    exclude: ["^docs:", "^test:", "^chore:"]
+
+release:
+  github:
+    owner: pigment-dev
+    name: rclone
+  name_template: "pdrclone {{ .Version }}"
+  draft: false
+  prerelease: auto

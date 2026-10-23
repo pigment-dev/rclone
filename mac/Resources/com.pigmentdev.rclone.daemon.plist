@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Fallback copy. build-app.sh prefers core/packaging/macos/com.pigmentdev.rclone.daemon.plist when present. -->
+	<key>Label</key>
+	<string>com.pigmentdev.rclone.daemon</string>
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/pdrcloned</string>
+	<key>ProgramArguments</key>
+	<array><string>pdrcloned</string></array>
+	<key>AssociatedBundleIdentifiers</key>
+	<array><string>com.pigmentdev.rclone</string></array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict><key>SuccessfulExit</key><false/></dict>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>LowPriorityIO</key>
+	<true/>
+	<key>EnvironmentVariables</key>
+	<dict><key>GOMEMLIMIT</key><string>200MiB</string></dict>
+</dict>
+</plist>

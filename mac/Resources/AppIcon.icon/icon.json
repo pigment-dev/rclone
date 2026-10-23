@@ -1,0 +1,16 @@
+{
+  "fill" : {
+    "solid" : "srgb:0.04314,0.04314,0.04314,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        { "glass" : true, "image-name" : "arrowheads.svg", "name" : "arrowheads" },
+        { "glass" : true, "image-name" : "body.svg", "name" : "body" }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.3 }
+    }
+  ],
+  "supported-platforms" : { "squares" : [ "macOS" ] }
+}

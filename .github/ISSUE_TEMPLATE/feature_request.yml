@@ -1,0 +1,82 @@
+name: Feature request
+description: Suggest a new feature or a change to an existing one.
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please check the roadmap in the README first. For open-ended ideas, a Discussion may be a better place to start.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and Discussions and this has not been requested yet.
+          required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - macOS app
+        - CLI / daemon (any OS)
+        - Linux
+        - Windows
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Accounts / providers
+        - Sync jobs
+        - Two-way sync / conflicts
+        - Filters / exclusions
+        - Schedules / triggers
+        - Network and power rules
+        - Action Center / notifications
+        - Logs / diagnostics
+        - Menu bar / UI
+        - CLI / daemon
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you are trying to do and what gets in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+      description: Describe the feature as you imagine it. Mock-ups are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Workarounds you use today, or how other tools solve it.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Version you use
+      placeholder: 1.0.0-beta.1
+    validations:
+      required: false
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I would like to help build this.
+          required: false

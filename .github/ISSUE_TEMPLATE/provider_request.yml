@@ -1,0 +1,97 @@
+name: Provider request
+description: Ask for a storage provider that the app does not offer yet.
+title: "[Provider]: "
+labels: ["provider", "enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PigmentDev rClone uses rclone backends. Providers that rclone already supports are much easier to add. You can check the list at https://rclone.org/overview/.
+
+        If your provider speaks S3, WebDAV, SFTP or FTP, try the generic option first. It may already work.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and this provider has not been requested yet.
+          required: true
+        - label: I checked that the provider is not already covered by the S3-compatible, WebDAV, SFTP or FTP options.
+          required: false
+  - type: input
+    id: provider
+    attributes:
+      label: Provider name
+      placeholder: Example Cloud Storage
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Provider website or API docs
+      placeholder: https://example.com/docs/api
+    validations:
+      required: true
+  - type: dropdown
+    id: rclone-support
+    attributes:
+      label: Does rclone support it?
+      options:
+        - Yes, as its own backend
+        - Yes, through a generic backend (S3, WebDAV, SFTP, FTP)
+        - No
+        - I do not know
+    validations:
+      required: true
+  - type: input
+    id: rclone-backend
+    attributes:
+      label: rclone backend name (if known)
+      placeholder: e.g. jottacloud, koofr, seafile
+    validations:
+      required: false
+  - type: dropdown
+    id: auth
+    attributes:
+      label: How do you sign in?
+      options:
+        - Browser sign-in (OAuth)
+        - Access key and secret
+        - Username and password
+        - API token
+        - SSH key
+        - Other / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where would you use it?
+      multiple: true
+      options:
+        - macOS app
+        - CLI / daemon on Linux
+        - CLI / daemon on Windows
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: How would you use it?
+      description: One-way backup, two-way sync, rough data size, number of files.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Known limits of the provider (rate limits, file name rules, file size limits), or whether you have tried it with rclone directly.
+    validations:
+      required: false
+  - type: checkboxes
+    id: testing
+    attributes:
+      label: Testing
+      options:
+        - label: I have an account and can help test a build with this provider.
+          required: false

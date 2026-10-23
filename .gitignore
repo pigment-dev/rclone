@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+# Swift
+mac/.build/
+mac/dist/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+# Go
+core/dist/
+core/bin/
+*.test
+*.out
+# local
+.vscode/
+.idea/
+*.key

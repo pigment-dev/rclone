@@ -1,0 +1,92 @@
+name: daemon
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["core/**", ".github/workflows/daemon.yml"]
+  pull_request:
+    paths: ["core/**", ".github/workflows/daemon.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: core
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-26, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - name: vet
+        run: go vet ./...
+      - name: test
+        # -race needs cgo; the shipped binaries are CGO_ENABLED=0.
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            go test ./...
+          else
+            go test -race ./...
+          fi
+      - name: cross-compile
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64; do
+            GOOS=${t%/*} GOARCH=${t#*/} go build -o /dev/null ./cmd/pdrcloned
+            GOOS=${t%/*} GOARCH=${t#*/} go build -o /dev/null ./cmd/pdrclone
+          done
+      - name: CLI smoke test (demo daemon)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          go build -o bin/ ./cmd/...
+          home=$(mktemp -d)
+          ./bin/pdrcloned --demo --home "$home" &
+          for i in $(seq 1 50); do ./bin/pdrclone --home "$home" status >/dev/null 2>&1 && break; sleep 0.2; done
+          ./bin/pdrclone --home "$home" status
+          ./bin/pdrclone --home "$home" account list
+          ./bin/pdrclone --home "$home" daemon stop
+
+  release:
+    name: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+          workdir: core
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: core/dist/*.*

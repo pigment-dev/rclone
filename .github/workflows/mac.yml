@@ -1,0 +1,86 @@
+name: mac
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths: ["mac/**", "core/**", ".github/workflows/mac.yml"]
+  pull_request:
+    paths: ["mac/**", "core/**", ".github/workflows/mac.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: mac
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+          go version
+
+      - name: Test (RCloneKit + fake daemon integration)
+        run: swift test
+
+      - name: Build app (universal, daemon embedded)
+        env:
+          UNIVERSAL: "1"
+          NO_DMG: "1"
+          BUILD_NUMBER: ${{ github.run_number }}
+          PDRCLONE_PUBLIC_KEY: ${{ vars.PDRCLONE_PUBLIC_KEY }}
+          PDRCLONE_KEY_B64: ${{ secrets.PDRCLONE_KEY_B64 }}
+        run: |
+          if [ -n "$PDRCLONE_KEY_B64" ]; then
+            mkdir -p ~/.config/pdrclone
+            printf '%s' "$PDRCLONE_KEY_B64" > ~/.config/pdrclone/ed25519.key
+            chmod 600 ~/.config/pdrclone/ed25519.key
+          fi
+          ./scripts/build-app.sh
+
+      - name: DMG
+        run: ./scripts/make-dmg.sh
+
+      - name: Smoke test against the fake daemon
+        run: |
+          python3 Tests/fake_daemon.py --socket /tmp/pdr-ci.sock --idle &
+          sleep 2
+          PDRCLONE_SOCKET=/tmp/pdr-ci.sock "dist/PigmentDev rClone.app/Contents/MacOS/PigmentDevRClone" &
+          APP=$!
+          sleep 8
+          kill -0 $APP
+          ps -o rss= -p $APP | awk '{printf "app RSS: %.1f MB\n", $1/1024}'
+          kill $APP %1 || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PigmentDev-rClone-mac
+          path: |
+            mac/dist/PigmentDev-rClone.zip
+            mac/dist/PigmentDev-rClone.zip.sig
+            mac/dist/PigmentDev-rClone.dmg
+          if-no-files-found: warn
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes $([[ "$TAG" == *-* ]] && echo --prerelease)
+          FILES=(dist/PigmentDev-rClone.zip dist/PigmentDev-rClone.dmg)
+          [ -f dist/PigmentDev-rClone.zip.sig ] && FILES+=(dist/PigmentDev-rClone.zip.sig)
+          gh release upload "$TAG" "${FILES[@]}" --clobber
