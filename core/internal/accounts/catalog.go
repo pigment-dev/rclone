@@ -20,9 +20,9 @@ type shipped struct {
 
 // Shipped is the provider list, in display order.
 var shippedList = []shipped{
-	{"drive", "drive", "Google Drive", "oauth", "cloud", true, []string{"scope", "root_folder_id", "team_drive", "skip_shortcuts"}},
-	{"onedrive", "onedrive", "Microsoft OneDrive", "oauth", "cloud", true, []string{"region"}},
-	{"dropbox", "dropbox", "Dropbox", "oauth", "cloud", true, []string{"shared_files", "shared_folders"}},
+	{"drive", "drive", "Google Drive", "oauth", "cloud", true, []string{"client_id", "client_secret", "scope", "root_folder_id", "team_drive", "skip_shortcuts"}},
+	{"onedrive", "onedrive", "Microsoft OneDrive", "oauth", "cloud", true, []string{"client_id", "client_secret", "region"}},
+	{"dropbox", "dropbox", "Dropbox", "oauth", "cloud", true, []string{"client_id", "client_secret", "shared_files", "shared_folders"}},
 	{"box", "box", "Box", "oauth", "cloud", false, nil},
 	{"pcloud", "pcloud", "pCloud", "oauth", "cloud", false, nil},
 	{"s3", "s3", "Amazon S3 & compatible (R2, MinIO, Wasabi…)", "fields", "object", true, []string{"provider", "access_key_id", "secret_access_key", "region", "endpoint"}},
@@ -86,6 +86,17 @@ func Providers() []model.Provider {
 				continue
 			}
 			f := toField(o)
+			// Browser sign-in needs no fields: every option is behind "Advanced",
+			// with the popular ones listed first.
+			if s.auth == "oauth" {
+				f.Advanced = true
+				if slices.Contains(s.popularFields, o.Name) {
+					popular = append(popular, f)
+				} else {
+					rest = append(rest, f)
+				}
+				continue
+			}
 			if slices.Contains(s.popularFields, o.Name) {
 				f.Advanced = false
 				popular = append(popular, f)

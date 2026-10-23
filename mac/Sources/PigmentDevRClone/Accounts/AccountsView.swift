@@ -81,6 +81,11 @@ struct AddAccountFlow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if reconnect == nil {
+                FlowSteps(titles: [L("Choose a service"), provider?.auth == .fields ? L("Connect") : L("Sign in"), L("Done")],
+                          current: phase == .pick ? 0 : 1)
+                    .padding(.bottom, 2)
+            }
             switch phase {
             case .pick: picker
             case .form: form
@@ -102,6 +107,12 @@ struct AddAccountFlow: View {
         .task {
             if model.providers.isEmpty { await model.refreshProviders() }
             if let r = reconnect, phase == .pick { await startReconnect(r) }
+            // Screenshot hook: PDRCLONE_ADD_PROVIDER=<id> opens that provider's form (PDRCLONE_ADD_ADVANCED=1 expands it).
+            let env = ProcessInfo.processInfo.environment
+            if reconnect == nil, phase == .pick, let id = env["PDRCLONE_ADD_PROVIDER"], let p = model.provider(id) {
+                choose(p)
+                showAdvanced = env["PDRCLONE_ADD_ADVANCED"] == "1"
+            }
         }
         .onDisappear { poll?.cancel() }
     }
@@ -161,37 +172,86 @@ struct AddAccountFlow: View {
         phase = .form
     }
 
+    private var visibleFields: [Field] {
+        guard let p = provider else { return [] }
+        let selected = values["provider"] ?? ""
+        return p.fields.filter { RcloneHelp.applies($0, to: selected) }
+    }
+
     private var form: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             if let p = provider {
                 HStack(spacing: 12) {
-                    ProviderIcon(id: p.id, size: 40)
+                    ProviderIcon(id: p.id, size: 44)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(p.name).font(PDFont.display(17, .heavy)).foregroundStyle(Theme.text)
-                        Text(p.auth == .oauth ? L("You'll sign in with your browser.") : L("Enter the connection details.")).font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
+                        Text(p.name).font(PDFont.display(18, .heavy)).foregroundStyle(Theme.text)
+                        Text(p.auth == .oauth ? L("Sign in with your browser. No passwords are typed here.") : L("Enter the connection details.")).font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
                     }
                     Spacer()
                     Button("Back") { phase = .pick }.buttonStyle(.link)
                 }
-                LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(.roundedBorder) }
-                ForEach(p.fields.filter { !$0.advanced || showAdvanced }) { field in
-                    FieldInput(field: field, value: Binding(get: { values[field.name] ?? "" }, set: { values[field.name] = $0 }))
+                if p.auth == .oauth {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(oauthSteps(p).enumerated()), id: \.offset) { i, text in
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Text("\(i + 1)").font(PDFont.numbers(11)).foregroundStyle(.white)
+                                    .frame(width: 18, height: 18).background(Circle().fill(Brand.orange))
+                                Text(text).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
                 }
-                if p.fields.contains(where: \.advanced) {
-                    Toggle("Show advanced options", isOn: $showAdvanced).toggleStyle(PDSwitchStyle())
+                LabeledField("Account name") { TextField("e.g. Work Drive", text: $name).textFieldStyle(.roundedBorder) }
+                ForEach(visibleFields.filter { !$0.advanced }) { field in
+                    FieldInput(field: field, providerID: p.id, value: binding(field))
                 }
                 HStack {
                     Spacer()
                     Button { Task { await start(p) } } label: {
-                        Label(p.auth == .oauth ? "Sign in with browser" : "Connect", systemImage: p.auth == .oauth ? "safari" : "link")
+                        Label(p.auth == .oauth ? L("Sign in with \(shortName(p))") : L("Connect"), systemImage: p.auth == .oauth ? "safari" : "link")
+                            .padding(.horizontal, 6)
                     }
                     .pdPrimary()
                     .disabled(!formValid(p))
                 }
+                if visibleFields.contains(where: \.advanced) {
+                    DisclosureGroup(isExpanded: $showAdvanced) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            if p.auth == .oauth, p.fields.contains(where: { $0.name == "client_id" }) {
+                                OwnClientIDGuide(providerID: p.id)
+                            }
+                            ForEach(visibleFields.filter(\.advanced)) { field in
+                                FieldInput(field: field, providerID: p.id, value: binding(field))
+                            }
+                        }
+                        .padding(.top, 10)
+                    } label: {
+                        Text(p.auth == .oauth ? "Advanced: own client ID, scope, root folder and more" : "Advanced options")
+                            .font(PDFont.text(12.5, .semibold)).foregroundStyle(Theme.textSecondary)
+                    }
+                }
             }
         }
-        .padding(18)
+        .padding(20)
         .pdGlass(radius: 22)
+    }
+
+    private func binding(_ field: Field) -> Binding<String> {
+        Binding(get: { values[field.name] ?? "" }, set: { values[field.name] = $0 })
+    }
+
+    private func shortName(_ p: Provider) -> String {
+        switch p.id {
+        case "drive", "gcs": return "Google"
+        case "onedrive": return "Microsoft"
+        default: return p.name
+        }
+    }
+
+    private func oauthSteps(_ p: Provider) -> [String] {
+        [L("Click the button below. Your browser opens the \(shortName(p)) sign-in page."),
+         L("Sign in and allow access. If the browser warns about an unverified app, choose Advanced and continue."),
+         L("Come back here. The account is added by itself, and the sign-in token is stored encrypted on this Mac.")]
     }
 
     private func formValid(_ p: Provider) -> Bool {
@@ -222,7 +282,7 @@ struct AddAccountFlow: View {
 
     private func question(_ q: AddAccountQuestion) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            FieldInput(field: q.asField, value: $answer)
+            FieldInput(field: q.asField, providerID: provider?.id ?? "", value: $answer)
             HStack {
                 Spacer()
                 Button("Cancel") { Task { await cancel() } }.pdSecondary(large: false)
@@ -240,7 +300,7 @@ struct AddAccountFlow: View {
         error = nil
         phase = .working
         var fields: [String: JSONValue] = [:]
-        for f in p.fields {
+        for f in visibleFields {
             let v = values[f.name] ?? ""
             if v.isEmpty { continue }
             switch f.type {
@@ -343,7 +403,9 @@ struct AddAccountFlow: View {
 /// One input generated from provider Field metadata.
 struct FieldInput: View {
     var field: Field
+    var providerID: String = ""
     @Binding var value: String
+    @State private var showMore = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -353,7 +415,7 @@ struct FieldInput: View {
             }
             switch field.type {
             case .password:
-                SecureField(field.help.isEmpty ? field.name : "", text: $value).textFieldStyle(.roundedBorder)
+                SecureField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder)
             case .bool:
                 Toggle(isOn: Binding(get: { value == "true" }, set: { value = $0 ? "true" : "false" })) { EmptyView() }
                     .toggleStyle(.switch).tint(Brand.orange).labelsHidden()
@@ -364,12 +426,32 @@ struct FieldInput: View {
                 }
                 .labelsHidden()
             case .int:
-                TextField(field.default?.stringValue ?? "", text: $value).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
+                TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
             case .string:
-                TextField(field.default?.stringValue ?? "", text: $value).textFieldStyle(.roundedBorder)
+                HStack(spacing: 6) {
+                    TextField(RcloneHelp.placeholder(for: field), text: $value).textFieldStyle(.roundedBorder)
+                    if !field.options.isEmpty {
+                        Menu {
+                            ForEach(field.options, id: \.self) { o in
+                                Button(o.label.isEmpty || o.label == o.value ? o.value : "\(o.value) — \(o.label)") { value = o.value }
+                            }
+                        } label: { Text("Choose") }
+                        .menuStyle(.button).fixedSize()
+                    }
+                }
             }
             if !field.help.isEmpty {
-                Text(field.help).font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted).fixedSize(horizontal: false, vertical: true)
+                let help = RcloneHelp.split(field.help, provider: providerID)
+                Text(help.summary).font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                    .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                if let more = help.more {
+                    if showMore {
+                        Text(more).font(PDFont.text(11.5)).foregroundStyle(Theme.textMuted)
+                            .fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    }
+                    Button(showMore ? "Less" : "More") { withAnimation(.easeOut(duration: 0.15)) { showMore.toggle() } }
+                        .buttonStyle(.link).font(PDFont.text(11.5, .semibold))
+                }
             }
         }
     }
@@ -414,6 +496,7 @@ struct AccountsView: View {
                 }
             }
         }
+        .onAppear { if ProcessInfo.processInfo.environment["PDRCLONE_ADD_PROVIDER"] != nil { adding = true } }
         .sheet(isPresented: $adding) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Add an account").font(PDFont.display(22, .black)).foregroundStyle(Theme.text)

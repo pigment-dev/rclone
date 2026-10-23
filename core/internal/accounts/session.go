@@ -226,7 +226,7 @@ func (f *RcloneFlow) advance(s *session, out *fs.ConfigOut) (*Result, error) {
 				return nil, err
 			}
 			continue
-		case "config_fs_advanced":
+		case "config_fs_advanced", "config_change_team_drive":
 			var err error
 			if out, err = f.step(s, out.State, "false"); err != nil {
 				return nil, err
