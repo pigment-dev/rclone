@@ -122,7 +122,8 @@ struct WizardView: View {
             Button { Task { await create() } } label: {
                 if busy { ProgressView().controlSize(.small) } else { Label("Create job", systemImage: "checkmark") }
             }
-            .pdPrimary().keyboardShortcut(.defaultAction).disabled(busy)
+            .pdPrimary().keyboardShortcut(.defaultAction).disabled(busy || preview.needsConfirmation && job.direction != .twoWay)
+            .help(preview.needsConfirmation ? L("Confirm the deletions in the preview first") : "")
         case .done:
             HStack {
                 Button("Close") { finish(onboard: true) }.pdSecondary()
@@ -414,6 +415,10 @@ struct PreviewState: Equatable {
     var loading = false
     var error: String?
     var spec: JobSpec?
+    /// The person confirmed the deletions shown in the preview.
+    var deletesConfirmed = false
+    /// Creating the job needs a confirmation when the first sync deletes or archives anything.
+    var needsConfirmation: Bool { (result?.deletes ?? 0) > 0 && !deletesConfirmed }
 }
 
 struct PreviewPanel: View {
@@ -445,6 +450,7 @@ struct PreviewPanel: View {
                     StatTile(symbol: "externaldrive.fill", value: Fmt.bytes(r.bytes), label: "To transfer", tint: Theme.textSecondary)
                 }
                 .pdGlassContainer(spacing: 12)
+                summary(r)
                 if r.deletes > 0, job.safety.maxDeletePercent > 0 {
                     Label("Deletions are guarded: a run that would delete more than \(job.safety.maxDeletePercent)% of files stops and asks first.", systemImage: "shield.lefthalf.filled")
                         .font(PDFont.text(12)).foregroundStyle(Theme.textSecondary)
@@ -464,6 +470,59 @@ struct PreviewPanel: View {
         }
     }
 
+    private var cloudName: String {
+        let acc = model.account(job.accountId)?.name ?? L("the cloud")
+        return acc + " › /" + Fmt.remote(job.remotePath)
+    }
+    private var atRoot: Bool { job.remotePath.isEmpty || job.remotePath == "/" }
+
+    /// Plain-language "what happens if I create this job" box.
+    @ViewBuilder private func summary(_ r: PreviewResult) -> some View {
+        let local = Fmt.path(job.localPath)
+        let cloud = cloudName
+        let delVerb = job.deletePolicy == .archive ? L("moved to the .pdrclone-archive folder (kept %d days)", job.archiveRetentionDays) : L("deleted")
+        VStack(alignment: .leading, spacing: 8) {
+            Text("If you create this job").font(PDFont.text(13, .semibold)).foregroundStyle(Theme.text)
+            Group {
+                switch job.direction {
+                case .upload:
+                    bullet(L("%@ new and %@ changed files (%@) are uploaded from %@ to %@.", Fmt.count(r.adds), Fmt.count(r.updates), Fmt.bytes(r.bytes), local, cloud), "arrow.up.circle.fill", Brand.green)
+                    if r.deletes > 0 { bullet(L("%@ files in %@ that aren't on this Mac are %@.", Fmt.count(r.deletes), cloud, delVerb), "trash.fill", Brand.red) }
+                    bullet(L("Nothing on this Mac is changed. Changes in the cloud never come back here."), "lock.fill", Theme.textMuted)
+                case .download:
+                    bullet(L("%@ new and %@ changed files (%@) are downloaded from %@ to %@.", Fmt.count(r.adds), Fmt.count(r.updates), Fmt.bytes(r.bytes), cloud, local), "arrow.down.circle.fill", Brand.green)
+                    if r.deletes > 0 { bullet(L("%@ files in %@ that aren't in the cloud are %@.", Fmt.count(r.deletes), local, delVerb), "trash.fill", Brand.red) }
+                    bullet(L("Nothing in the cloud is changed."), "lock.fill", Theme.textMuted)
+                case .twoWay:
+                    bullet(L("The first run merges both sides without deleting anything: %@ files are copied, %@ in total.", Fmt.count(r.adds + r.updates), Fmt.bytes(r.bytes)), "arrow.up.arrow.down.circle.fill", Brand.green)
+                }
+                if r.excluded > 0 { bullet(L("%@ files are skipped by your exclusions and stay where they are.", Fmt.count(r.excluded)), "minus.circle.fill", Brand.orange) }
+                bullet(L("After that: ") + job.deletePolicy.explanation(for: job.direction, retentionDays: job.archiveRetentionDays), "clock.arrow.circlepath", Theme.textSecondary)
+            }
+            if atRoot && r.deletes > 0 {
+                Label("You picked the top level of the storage, so everything there that isn't in \((job.localPath as NSString).lastPathComponent) counts as extra. Go back and open the folder you want to sync into.", systemImage: "exclamationmark.octagon.fill")
+                    .font(PDFont.text(12.5, .semibold)).foregroundStyle(Brand.red).fixedSize(horizontal: false, vertical: true)
+            }
+            if r.deletes > 0 && job.direction != .twoWay {
+                Toggle(isOn: $state.deletesConfirmed) {
+                    Text(L("I understand: %@ files in %@ will be %@.", Fmt.count(r.deletes), job.direction == .upload ? cloud : local, delVerb))
+                        .font(PDFont.text(12.5, .semibold))
+                }
+                .toggleStyle(.checkbox)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .pdGlass(radius: 18)
+    }
+
+    private func bullet(_ text: String, _ symbol: String, _ tint: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).foregroundStyle(tint).frame(width: 14)
+            Text(text).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     @ViewBuilder private func sampleList(_ r: PreviewResult) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             let rows: [(String, String?)] = {
@@ -474,6 +533,10 @@ struct PreviewPanel: View {
                 default: return r.sample.excluded.map { ($0.path, $0.rule) }
                 }
             }()
+            if tab == 2, !rows.isEmpty {
+                Text(job.direction == .download ? L("On this Mac but not in the cloud folder:") : L("In the cloud folder but not on this Mac:"))
+                    .font(PDFont.text(11.5, .semibold)).foregroundStyle(Theme.textMuted).padding(.horizontal, 14).padding(.top, 10)
+            }
             if rows.isEmpty {
                 Text("Nothing here").font(PDFont.text(12.5)).foregroundStyle(Theme.textMuted).padding(14)
             }

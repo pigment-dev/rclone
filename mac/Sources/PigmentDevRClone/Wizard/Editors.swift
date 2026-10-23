@@ -181,12 +181,13 @@ struct RemoteBrowser: View {
             }
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
-                Text("Selected: ").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
+                Text("Syncs into: ").font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
                 + Text("/" + Fmt.remote(path)).font(PDFont.text(12.5, .semibold)).foregroundStyle(Theme.text)
                 Spacer()
-                Button(current == path ? L("Selected") : L("Use “%@”", current.isEmpty ? L("Root") : (Fmt.remote(current) as NSString).lastPathComponent)) { path = current }
-                    .pdPrimary()
-                    .disabled(current == path || current == "@computers")
+                if path.isEmpty || path == "/" {
+                    Label("Top level of the storage. Open a folder to sync into it.", systemImage: "exclamationmark.triangle.fill")
+                        .font(PDFont.text(11.5, .semibold)).foregroundStyle(Brand.orange)
+                }
             }
         }
         .task(id: accountID) { current = path; await load() }
@@ -239,7 +240,7 @@ struct RemoteBrowser: View {
     }
 
     private func breadcrumb(_ name: String, _ p: String) -> some View {
-        Button { current = p; Task { await load() } } label: {
+        Button { current = p; if p != "@computers" { path = p }; Task { await load() } } label: {
             Text(LocalizedStringKey(name)).font(PDFont.text(12.5, current == p ? .bold : .medium))
                 .foregroundStyle(current == p ? Theme.text : Theme.textSecondary)
                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -251,6 +252,7 @@ struct RemoteBrowser: View {
     private func open(_ e: RemoteEntry) {
         guard e.isDir else { return }
         current = e.path.isEmpty ? (current.isEmpty ? e.name : current + "/" + e.name) : e.path
+        if current != "@computers" { path = current } // the folder you're in is the one that syncs
         Task { await load() }
     }
 
@@ -307,7 +309,9 @@ struct DirectionEditor: View {
                     ForEach(DeletePolicy.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
-                Text(job.deletePolicy.explanation).font(PDFont.text(12.5)).foregroundStyle(Theme.textSecondary)
+                Text(job.deletePolicy.explanation(for: job.direction, retentionDays: job.archiveRetentionDays))
+                    .font(PDFont.text(12.5)).foregroundStyle(job.deletePolicy == .mirror ? Brand.red : Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 if job.deletePolicy == .archive {
                     Stepper(value: $job.archiveRetentionDays, in: 1...3650) {
                         Text("Keep archived files for \(job.archiveRetentionDays) days").font(PDFont.text(13))

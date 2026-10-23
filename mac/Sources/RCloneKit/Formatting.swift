@@ -175,6 +175,30 @@ public extension DeletePolicy {
     }
 }
 
+public extension DeletePolicy {
+    /// What deletions mean for a given direction, in plain words.
+    func explanation(for direction: SyncDirection, retentionDays: Int) -> String {
+        switch (direction, self) {
+        case (.upload, .mirror):
+            return L("The cloud folder becomes an exact copy of this Mac. Delete a file here and it's deleted in the cloud on the next sync. Files that exist only in the cloud folder are deleted too, starting with the first sync.")
+        case (.upload, .archive):
+            return L("Delete a file here and its cloud copy moves to the .pdrclone-archive folder inside the cloud folder, where it's kept for %d days. Files that exist only in the cloud folder are moved there too.", retentionDays)
+        case (.upload, .never):
+            return L("Nothing in the cloud is ever deleted. Files you delete here stay in the cloud, and files that exist only in the cloud stay as they are.")
+        case (.download, .mirror):
+            return L("This Mac becomes an exact copy of the cloud folder. Files deleted in the cloud are deleted here, and files that exist only on this Mac are deleted too.")
+        case (.download, .archive):
+            return L("Files deleted in the cloud, and files that exist only on this Mac, move to the .pdrclone-archive folder on this Mac and are kept for %d days.", retentionDays)
+        case (.download, .never):
+            return L("Nothing on this Mac is ever deleted. New and changed cloud files are copied here.")
+        case (.twoWay, .mirror):
+            return L("Delete a file on either side and it's deleted on the other side on the next sync.")
+        case (.twoWay, .archive), (.twoWay, .never):
+            return L("Delete a file on either side and the other side's copy moves to its .pdrclone-archive folder, kept for %d days.", retentionDays)
+        }
+    }
+}
+
 public extension ConflictPolicy {
     var title: String {
         switch self {
