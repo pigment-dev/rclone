@@ -400,7 +400,7 @@ public struct SyncProgress: Codable, Equatable, Sendable {
     /// "Folder 3 of 42 · hesabyar", or nil for a single-part run.
     public var partLine: String? {
         guard steps > 1, step > 0 else { return nil }
-        return step == 1 ? L("Part %d of %d · files at the top level", step, steps) : L("Folder %d of %d · %@", step - 1, steps - 1, phase)
+        return step == steps ? L("Last part · files at the top level") : L("Folder %d of %d · %@", step, steps - 1, phase)
     }
     /// Nothing counted yet: rclone is still listing both sides.
     public var isComparing: Bool { totalBytes == 0 && files == 0 && checks == 0 }

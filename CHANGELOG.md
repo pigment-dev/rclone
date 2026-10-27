@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-10-27
+
+### Fixed
+
+- Folder-by-folder runs: the top level is synced last, and its deletion guard is measured against the whole job. In beta.6 a folder removed or renamed on this Mac could stop a large job with "too many deletes" because the guard only counted the top level.
+- Progress labels read "Folder 3 of 42 · name" and "Last part · files at the top level".
+
 ## [1.0.0-beta.6] - 2026-10-27
 
 ### Changed

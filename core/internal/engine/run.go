@@ -210,36 +210,18 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 	}
 	if len(folders) < minFoldersToSplit {
 		ci.BackupDir = archive
-		return syncPart(ctx, spec, fsrc, fdst, mirror, 0)
+		res, _ := syncPart(ctx, spec, fsrc, fdst, mirror, 0, 0)
+		return res
 	}
 
 	steps := len(folders) + 1
-	// Part 1: files at the top level, plus anything in the destination's top
-	// level that the source doesn't have (mirror deletes those).
-	ph.set("", 1, steps)
-	rootFi, err := spec.Filter.Rclone(true)
-	if err != nil {
-		return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
-	}
-	for _, f := range folders {
-		if err := rootFi.AddRule("- /" + globEscape(f) + "/**"); err != nil {
-			return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
-		}
-	}
-	ci.BackupDir = archive
-	first := syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 20)
-	if first.Err != nil && first.Fail == FailMaxDelete {
-		return first
-	}
 	var firstErr *RunResult
-	if first.Err != nil {
-		firstErr = &first
-	}
+	seen := 0 // destination files checked so far, for the top-level part's guard
 	for i, f := range folders {
 		if ctx.Err() != nil {
 			return RunResult{Err: ctx.Err()}
 		}
-		ph.set(f, i+2, steps)
+		ph.set(f, i+1, steps)
 		fs1, err := fs.NewFs(ctx, joinFs(srcS, f))
 		if err != nil {
 			if firstErr == nil {
@@ -257,7 +239,8 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 		if archive != "" {
 			ci.BackupDir = joinFs(archive, f)
 		}
-		res := syncPart(ctx, spec, fs1, fd1, mirror, 20)
+		res, total := syncPart(ctx, spec, fs1, fd1, mirror, 20, 0)
+		seen += total
 		if res.Err != nil {
 			res.Err = fmt.Errorf("%s: %w", f, res.Err)
 			if res.Fail == FailMaxDelete {
@@ -268,7 +251,26 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 			}
 		}
 	}
+	// Last part: files at the top level, plus anything in the destination's
+	// top level the source doesn't have (mirror removes those, e.g. a folder
+	// deleted or renamed on this side). Its deletion guard is measured against
+	// the whole job, not just this part.
+	ph.set("", steps, steps)
+	rootFi, err := spec.Filter.Rclone(true)
+	if err != nil {
+		return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
+	}
+	for _, f := range folders {
+		if err := rootFi.AddRule("- /" + globEscape(f) + "/**"); err != nil {
+			return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
+		}
+	}
+	ci.BackupDir = archive
+	last, _ := syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 0, seen)
 	ph.set("", 0, 0)
+	if last.Err != nil && (last.Fail == FailMaxDelete || firstErr == nil) {
+		return last
+	}
 	if firstErr != nil {
 		return *firstErr
 	}
@@ -276,17 +278,23 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 }
 
 // syncPart runs one rclone sync/copy, guarded by the max-delete check.
-func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, minDeletes int) RunResult {
+// syncPart runs one rclone sync/copy, guarded by the max-delete check. It
+// returns the number of destination files it compared. extraTotal adds files
+// checked by earlier parts to the guard's denominator.
+func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, minDeletes, extraTotal int) (RunResult, int) {
+	dstTotal := 0
 	if mirror && !spec.Force && !spec.DryRun && spec.Job.Safety.MaxDeletePercent < 100 {
 		d, err := diff(ctx, fsrc, fdst, 0)
 		if err != nil {
-			return RunResult{Err: err}
+			return RunResult{Err: err}, 0
 		}
+		dstTotal = d.dstTotal
+		total := d.dstTotal + extraTotal
 		// In a folder-by-folder run a small part can't trip the guard on its
 		// own: a 2-file folder losing one file is not a mass deletion.
-		if len(d.dstOnly) > minDeletes && exceeds(len(d.dstOnly), d.dstTotal, spec.Job.Safety.MaxDeletePercent) {
+		if len(d.dstOnly) > minDeletes && exceeds(len(d.dstOnly), total, spec.Job.Safety.MaxDeletePercent) {
 			return RunResult{Fail: FailMaxDelete, Err: fmt.Errorf("too many deletes: %d of %d files (%d%%) would be deleted, limit is %d%%",
-				len(d.dstOnly), d.dstTotal, len(d.dstOnly)*100/max(1, d.dstTotal), spec.Job.Safety.MaxDeletePercent)}
+				len(d.dstOnly), total, len(d.dstOnly)*100/max(1, total), spec.Job.Safety.MaxDeletePercent)}, dstTotal
 		}
 	}
 	fn := func(ctx context.Context, _ rc.Params) (rc.Params, error) {
@@ -296,7 +304,7 @@ func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, 
 		return nil, rsync.CopyDir(ctx, fdst, fsrc, false)
 	}
 	_, _, err := jobs.NewJob(ctx, fn, rc.Params{"_group": spec.RunID})
-	return RunResult{Err: err}
+	return RunResult{Err: err}, dstTotal
 }
 
 // topFolders lists the source's top-level folders that the job's filters keep.
