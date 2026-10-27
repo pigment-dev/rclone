@@ -166,6 +166,10 @@ type Progress struct {
 	TotalChecks  int64      `json:"totalChecks"`
 	Errors       int64      `json:"errors"`
 	Transferring []Transfer `json:"transferring"`
+	// Large jobs run folder by folder: which part is running now.
+	Phase string `json:"phase,omitempty"`
+	Step  int    `json:"step,omitempty"`
+	Steps int    `json:"steps,omitempty"`
 }
 
 // OverallProgress aggregates all running jobs.

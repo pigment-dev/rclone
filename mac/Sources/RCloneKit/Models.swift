@@ -393,6 +393,17 @@ public struct SyncProgress: Codable, Equatable, Sendable {
     @Default<Zero> public var totalChecks: Int64 = 0
     @Default<Zero> public var errors: Int64 = 0
     @Default<EmptyList<Transfer>> public var transferring: [Transfer] = []
+    /// Large jobs run one top-level folder at a time: which part is running.
+    @Default<EmptyString> public var phase: String = ""
+    @Default<ZeroInt> public var step: Int = 0
+    @Default<ZeroInt> public var steps: Int = 0
+    /// "Folder 3 of 42 · hesabyar", or nil for a single-part run.
+    public var partLine: String? {
+        guard steps > 1, step > 0 else { return nil }
+        return step == 1 ? L("Part %d of %d · files at the top level", step, steps) : L("Folder %d of %d · %@", step - 1, steps - 1, phase)
+    }
+    /// Nothing counted yet: rclone is still listing both sides.
+    public var isComparing: Bool { totalBytes == 0 && files == 0 && checks == 0 }
     public init(bytes: Int64 = 0, totalBytes: Int64 = 0, files: Int64 = 0, totalFiles: Int64 = 0, speed: Double = 0, eta: Double? = nil,
                 percent: Double = 0, checks: Int64 = 0, totalChecks: Int64 = 0, errors: Int64 = 0, transferring: [Transfer] = []) {
         self.bytes = bytes; self.totalBytes = totalBytes; self.files = files; self.totalFiles = totalFiles; self.speed = speed

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -118,12 +120,20 @@ func (r *Rclone) Run(ctx context.Context, spec RunSpec, progress ProgressFn) Run
 	ctx = accounting.WithStatsGroup(ctx, group)
 	defer deleteStatsGroup(group)
 
+	ph := &runPhase{}
+	if progress != nil {
+		inner := progress
+		progress = func(p model.Progress) {
+			p.Phase, p.Step, p.Steps = ph.get()
+			inner(p)
+		}
+	}
 	stopPoll := pollProgress(ctx, group, progress)
 	var res RunResult
 	if spec.Job.Direction == model.DirTwoWay {
 		res = r.bisync(ctx, spec)
 	} else {
-		res = r.oneWay(ctx, spec)
+		res = r.oneWay(ctx, spec, ph)
 	}
 	stopPoll()
 
@@ -145,7 +155,30 @@ func (r *Rclone) Run(ctx context.Context, spec RunSpec, progress ProgressFn) Run
 	return res
 }
 
-func (r *Rclone) oneWay(ctx context.Context, spec RunSpec) RunResult {
+// runPhase is the part of a folder-by-folder run that is running now.
+type runPhase struct {
+	mu          sync.Mutex
+	name        string
+	step, steps int
+}
+
+func (p *runPhase) set(name string, step, steps int) {
+	p.mu.Lock()
+	p.name, p.step, p.steps = name, step, steps
+	p.mu.Unlock()
+}
+
+func (p *runPhase) get() (string, int, int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.name, p.step, p.steps
+}
+
+// Folders checked at the top level of a job. A job with at least this many
+// is synced one top-level folder at a time.
+const minFoldersToSplit = 2
+
+func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResult {
 	ctx, ci, err := runContext(ctx, spec)
 	if err != nil {
 		return RunResult{Err: err, Fail: FailOther}
@@ -163,15 +196,95 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec) RunResult {
 		return RunResult{Err: fmt.Errorf("destination: %w", err)}
 	}
 	mirror := spec.Job.DeletePolicy != model.DeleteNever && spec.Files == nil
+	archive := ""
 	if mirror && spec.Job.DeletePolicy == model.DeleteArchive {
-		ci.BackupDir = joinFs(dstS, filters.ArchiveDir+"/"+spec.Now.Format("2006-01-02"))
+		archive = joinFs(dstS, filters.ArchiveDir+"/"+spec.Now.Format("2006-01-02"))
 	}
+
+	// Large trees: one top-level folder at a time. Each part lists, checks and
+	// transfers on its own, so work starts right away, progress is visible and
+	// one slow or failing folder doesn't hold up the rest.
+	var folders []string
+	if spec.Files == nil && spec.Filter != nil && !spec.Filter.Anchored() {
+		folders = topFolders(ctx, fsrc, spec)
+	}
+	if len(folders) < minFoldersToSplit {
+		ci.BackupDir = archive
+		return syncPart(ctx, spec, fsrc, fdst, mirror, 0)
+	}
+
+	steps := len(folders) + 1
+	// Part 1: files at the top level, plus anything in the destination's top
+	// level that the source doesn't have (mirror deletes those).
+	ph.set("", 1, steps)
+	rootFi, err := spec.Filter.Rclone(true)
+	if err != nil {
+		return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
+	}
+	for _, f := range folders {
+		if err := rootFi.AddRule("- /" + globEscape(f) + "/**"); err != nil {
+			return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
+		}
+	}
+	ci.BackupDir = archive
+	first := syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 20)
+	if first.Err != nil && first.Fail == FailMaxDelete {
+		return first
+	}
+	var firstErr *RunResult
+	if first.Err != nil {
+		firstErr = &first
+	}
+	for i, f := range folders {
+		if ctx.Err() != nil {
+			return RunResult{Err: ctx.Err()}
+		}
+		ph.set(f, i+2, steps)
+		fs1, err := fs.NewFs(ctx, joinFs(srcS, f))
+		if err != nil {
+			if firstErr == nil {
+				firstErr = &RunResult{Err: fmt.Errorf("%s: %w", f, err)}
+			}
+			continue
+		}
+		fd1, err := fs.NewFs(ctx, joinFs(dstS, f))
+		if err != nil {
+			if firstErr == nil {
+				firstErr = &RunResult{Err: fmt.Errorf("%s: %w", f, err)}
+			}
+			continue
+		}
+		if archive != "" {
+			ci.BackupDir = joinFs(archive, f)
+		}
+		res := syncPart(ctx, spec, fs1, fd1, mirror, 20)
+		if res.Err != nil {
+			res.Err = fmt.Errorf("%s: %w", f, res.Err)
+			if res.Fail == FailMaxDelete {
+				return res
+			}
+			if firstErr == nil {
+				firstErr = &res
+			}
+		}
+	}
+	ph.set("", 0, 0)
+	if firstErr != nil {
+		return *firstErr
+	}
+	return RunResult{}
+}
+
+// syncPart runs one rclone sync/copy, guarded by the max-delete check.
+func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, minDeletes int) RunResult {
 	if mirror && !spec.Force && !spec.DryRun && spec.Job.Safety.MaxDeletePercent < 100 {
 		d, err := diff(ctx, fsrc, fdst, 0)
 		if err != nil {
 			return RunResult{Err: err}
 		}
-		if exceeds(len(d.dstOnly), d.dstTotal, spec.Job.Safety.MaxDeletePercent) {
+		// In a folder-by-folder run a small part can't trip the guard on its
+		// own: a 2-file folder losing one file is not a mass deletion.
+		if len(d.dstOnly) > minDeletes && exceeds(len(d.dstOnly), d.dstTotal, spec.Job.Safety.MaxDeletePercent) {
 			return RunResult{Fail: FailMaxDelete, Err: fmt.Errorf("too many deletes: %d of %d files (%d%%) would be deleted, limit is %d%%",
 				len(d.dstOnly), d.dstTotal, len(d.dstOnly)*100/max(1, d.dstTotal), spec.Job.Safety.MaxDeletePercent)}
 		}
@@ -182,8 +295,59 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec) RunResult {
 		}
 		return nil, rsync.CopyDir(ctx, fdst, fsrc, false)
 	}
-	_, _, err = jobs.NewJob(ctx, fn, rc.Params{"_group": spec.RunID})
+	_, _, err := jobs.NewJob(ctx, fn, rc.Params{"_group": spec.RunID})
 	return RunResult{Err: err}
+}
+
+// topFolders lists the source's top-level folders that the job's filters keep.
+func topFolders(ctx context.Context, fsrc fs.Fs, spec RunSpec) []string {
+	entries, err := fsrc.List(ctx, "")
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		d, ok := e.(fs.Directory)
+		if !ok {
+			continue
+		}
+		name := path.Base(d.Remote())
+		if excluded, _ := spec.Filter.ExcludesDir(name); excluded {
+			continue
+		}
+		if name == filters.ArchiveDir || hasMarker(spec, name) {
+			continue
+		}
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// hasMarker reports whether a local top-level folder holds an exclude marker
+// such as .nosync (rclone doesn't apply the marker to the root of a run).
+func hasMarker(spec RunSpec, name string) bool {
+	if spec.Job.Direction == model.DirDownload {
+		return false
+	}
+	for _, m := range spec.Job.Filters.ExcludeIfPresent {
+		if _, err := os.Stat(filepath.Join(spec.Job.LocalPath, name, m)); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// globEscape escapes rclone glob characters in a literal name.
+func globEscape(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if strings.ContainsRune(`\*?[]{}`, r) {
+			b.WriteRune('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func exceeds(deletes, total, pct int) bool {

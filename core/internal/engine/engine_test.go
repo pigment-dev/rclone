@@ -326,3 +326,36 @@ func TestClassify(t *testing.T) {
 type errString string
 
 func (e errString) Error() string { return string(e) }
+
+func TestUploadFolderByFolder(t *testing.T) {
+	base := shortDir(t)
+	local, remote := filepath.Join(base, "l"), filepath.Join(base, "r")
+	write(t, local, "top.txt", "t")
+	write(t, local, "one/a.txt", "a")
+	write(t, local, "two [x]/b.txt", "b")
+	write(t, local, "three/.git/HEAD", "ref")
+	write(t, remote, "gone/old.txt", "old")
+	j := job(local, remote, model.DirUpload, model.DeleteMirror, model.ConflictNewer)
+	j.Safety.MaxDeletePercent = 100
+	var phases []string
+	sp := spec(t, j)
+	res := eng.Run(context.Background(), sp, func(p model.Progress) {
+		if p.Steps > 0 {
+			phases = append(phases, p.Phase)
+		}
+	})
+	if res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	for _, rel := range []string{"top.txt", "one/a.txt", "two [x]/b.txt"} {
+		if _, ok := read(t, remote, rel); !ok {
+			t.Errorf("%s missing on remote", rel)
+		}
+	}
+	if _, ok := read(t, remote, "three/.git/HEAD"); ok {
+		t.Error(".git must stay excluded inside a folder")
+	}
+	if _, ok := read(t, remote, "gone/old.txt"); ok {
+		t.Error("mirror should delete a top-level folder that only exists on the remote")
+	}
+}

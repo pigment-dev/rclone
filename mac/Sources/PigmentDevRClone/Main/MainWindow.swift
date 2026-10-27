@@ -148,7 +148,7 @@ struct StatusBar: View {
         let running = model.runningJobs
         if let job = running.first, model.isConnected {
             let o = model.overall
-            let file = job.progress?.transferring.first?.name
+            let file = job.progress?.transferring.first?.name ?? job.progress?.partLine
             HStack(spacing: 8) {
                 Image(systemName: "arrow.triangle.2.circlepath").font(.system(size: 11, weight: .semibold)).foregroundStyle(Brand.orange)
                 Text(running.count > 1 ? L("Syncing %d jobs", running.count) : L("Syncing %@", job.name))

@@ -134,6 +134,18 @@ func (c *Compiled) Rclone(withAge bool) (*filter.Filter, error) {
 	return filter.NewFilter(&opt)
 }
 
+// Anchored reports whether any user or preset rule is anchored to the job
+// root ("/name/…"). Such rules only make sense against the whole tree, so the
+// engine doesn't split those jobs into per-folder runs.
+func (c *Compiled) Anchored() bool {
+	for _, r := range c.rules {
+		if r.source != "built-in" && strings.HasPrefix(r.line[2:], "/") {
+			return true
+		}
+	}
+	return false
+}
+
 // MatchPath returns the first rule matching the slash-separated relative
 // path, or nil if none matches (included by default).
 func (c *Compiled) MatchPath(rel string) (include bool, rule *compiledRule) {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] - 2026-10-27
+
+### Changed
+
+- Large jobs sync one top-level folder at a time. Files at the top level go first, then each folder in turn, so transfers start right away instead of after the whole tree has been compared, and one slow or failing folder doesn't hold up the rest. Jobs with rules anchored to the job root ("/name/…") still run as one piece.
+- Progress shows which part is running ("Folder 3 of 42 · hesabyar") and says "Comparing this Mac with the cloud…" while both sides are being listed, instead of "0 B · 0 files".
+- The deletion guard checks each folder on its own; in folder-by-folder runs a folder needs more than 20 deletions before the guard can stop the run.
+
 ## [1.0.0-beta.5] - 2026-10-23
 
 ### Fixed

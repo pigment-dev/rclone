@@ -8,7 +8,14 @@ struct JobProgressBlock: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 4 : 6) {
-            ProgressTrack(fraction: progress.fraction, height: compact ? 5 : 6)
+            ProgressTrack(fraction: progress.fraction, height: compact ? 5 : 6, indeterminate: progress.isComparing)
+            if let part = progress.partLine {
+                Text(part).font(PDFont.text(compact ? 10.5 : 11.5, .semibold)).foregroundStyle(Theme.text).lineLimit(1).truncationMode(.middle)
+            }
+            if progress.isComparing {
+                Text("Comparing this Mac with the cloud… large folders take a while before files start moving.")
+                    .font(PDFont.text(compact ? 10.5 : 11.5)).foregroundStyle(Theme.textSecondary).lineLimit(compact ? 1 : 2)
+            } else {
             HStack(spacing: 6) {
                 Text(Fmt.bytesOfTotal(progress)).layoutPriority(1)
                 Text("·").foregroundStyle(Theme.textMuted)
@@ -25,6 +32,7 @@ struct JobProgressBlock: View {
             .font(PDFont.numbers(compact ? 10.5 : 11.5))
             .foregroundStyle(Theme.textSecondary)
             .lineLimit(1)
+            }
             if let file = progress.currentFile {
                 HStack(spacing: 5) {
                     Image(systemName: "doc").font(.system(size: 9.5))
