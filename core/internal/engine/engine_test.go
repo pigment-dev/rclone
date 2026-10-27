@@ -359,3 +359,20 @@ func TestUploadFolderByFolder(t *testing.T) {
 		t.Error("mirror should delete a top-level folder that only exists on the remote")
 	}
 }
+
+func TestUploadIntoEmptyDestination(t *testing.T) {
+	base := shortDir(t)
+	local, remote := filepath.Join(base, "l"), filepath.Join(base, "r")
+	write(t, local, "a.txt", "a")
+	write(t, local, "one/b.txt", "b")
+	write(t, local, "two/.git/HEAD", "ref")
+	write(t, local, "two/c.txt", "c")
+	j := job(local, remote, model.DirUpload, model.DeleteMirror, model.ConflictNewer)
+	res := mustRun(t, spec(t, j))
+	if res.Files != 3 {
+		t.Errorf("files = %d, want 3", res.Files)
+	}
+	if _, ok := read(t, remote, "two/.git/HEAD"); ok {
+		t.Error("exclusions still apply when the destination is empty")
+	}
+}

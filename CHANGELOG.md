@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] - 2026-10-27
+
+### Changed
+
+- When the cloud folder (or a folder inside it) is empty or doesn't exist yet, files are uploaded right away: no comparing, no listing of the other side, no deletion check. Exclusions still apply.
+
 ## [1.0.0-beta.7] - 2026-10-27
 
 ### Fixed

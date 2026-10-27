@@ -283,6 +283,17 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 // checked by earlier parts to the guard's denominator.
 func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, minDeletes, extraTotal int) (RunResult, int) {
 	dstTotal := 0
+	// Nothing in the destination yet: nothing to compare or delete. Upload
+	// straight away without listing or checking the other side.
+	if destEmpty(ctx, fdst) {
+		ctx, ci := fs.AddConfig(ctx)
+		ci.NoCheckDest = true
+		fn := func(ctx context.Context, _ rc.Params) (rc.Params, error) {
+			return nil, rsync.CopyDir(ctx, fdst, fsrc, false)
+		}
+		_, _, err := jobs.NewJob(ctx, fn, rc.Params{"_group": spec.RunID})
+		return RunResult{Err: err}, 0
+	}
 	if mirror && !spec.Force && !spec.DryRun && spec.Job.Safety.MaxDeletePercent < 100 {
 		d, err := diff(ctx, fsrc, fdst, 0)
 		if err != nil {
@@ -305,6 +316,15 @@ func syncPart(ctx context.Context, spec RunSpec, fsrc, fdst fs.Fs, mirror bool, 
 	}
 	_, _, err := jobs.NewJob(ctx, fn, rc.Params{"_group": spec.RunID})
 	return RunResult{Err: err}, dstTotal
+}
+
+// destEmpty reports whether the destination folder is missing or empty.
+func destEmpty(ctx context.Context, fdst fs.Fs) bool {
+	entries, err := fdst.List(ctx, "")
+	if errors.Is(err, fs.ErrorDirNotFound) {
+		return true
+	}
+	return err == nil && len(entries) == 0
 }
 
 // topFolders lists the source's top-level folders that the job's filters keep.
