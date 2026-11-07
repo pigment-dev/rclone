@@ -541,7 +541,11 @@ public struct RunJobParams: Codable, Sendable {
     public var id: String
     public var dryRun: Bool
     public var resync: Bool
-    public init(id: String, dryRun: Bool = false, resync: Bool = false) { self.id = id; self.dryRun = dryRun; self.resync = resync }
+    /// Check every folder, including ones unchanged since their last sync.
+    public var full: Bool
+    public init(id: String, dryRun: Bool = false, resync: Bool = false, full: Bool = false) {
+        self.id = id; self.dryRun = dryRun; self.resync = resync; self.full = full
+    }
 }
 
 public struct RunJobResult: Codable, Sendable { @Default<EmptyString> public var runId: String = "" }

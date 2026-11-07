@@ -233,8 +233,8 @@ public final class AppModel {
         do { try await work(client); return true } catch { report(error); return false }
     }
 
-    public func run(_ id: String, dryRun: Bool = false, resync: Bool = false) async {
-        await perform { try await $0.send("jobs.run", RunJobParams(id: id, dryRun: dryRun, resync: resync)) }
+    public func run(_ id: String, dryRun: Bool = false, resync: Bool = false, full: Bool = false) async {
+        await perform { try await $0.send("jobs.run", RunJobParams(id: id, dryRun: dryRun, resync: resync, full: full)) }
     }
     public func pause(_ id: String) async { await perform { try await $0.send("jobs.pause", IDParams(id)) } }
     public func resume(_ id: String) async { await perform { try await $0.send("jobs.resume", IDParams(id)) } }

@@ -24,6 +24,10 @@ type RunSpec struct {
 	Force   bool     // bypass the max-delete guard (user chose "run anyway")
 	Files   []string // upload fast path: only these relative paths
 	Now     time.Time
+	// StateFile remembers which folders an upload job finished syncing, so
+	// unchanged ones are skipped next time. Empty = always check everything.
+	StateFile string
+	Full      bool // check every folder, even unchanged ones
 }
 
 // Conflict is a two-way conflict where both copies were kept.
@@ -52,6 +56,7 @@ type RunResult struct {
 	Files     int64
 	Deletes   int64
 	Conflicts []Conflict
+	Unchanged int // folders skipped because nothing changed since their last sync
 	Err       error
 	Fail      string
 }

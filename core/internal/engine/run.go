@@ -178,6 +178,9 @@ func (p *runPhase) get() (string, int, int) {
 // is synced one top-level folder at a time.
 const minFoldersToSplit = 2
 
+// wholeJob is the sync-state key of a job that isn't split into folders.
+const wholeJob = "/"
+
 func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResult {
 	ctx, ci, err := runContext(ctx, spec)
 	if err != nil {
@@ -208,20 +211,67 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 	if spec.Files == nil && spec.Filter != nil && !spec.Filter.Anchored() {
 		folders = topFolders(ctx, fsrc, spec)
 	}
+	remember := skipMemory(spec)
+	var st *syncState
+	if remember {
+		st = loadState(spec)
+	}
+	// check fingerprints a local folder and reports whether it can be
+	// skipped. record marks it synced after a successful part.
+	type mark struct {
+		stamp string
+		files int
+		ok    bool
+	}
+	check := func(key, rel string) (mark, bool) {
+		if !remember {
+			return mark{}, false
+		}
+		stamp, n, fresh, err := folderPrint(spec, rel, spec.Now)
+		if err != nil {
+			return mark{}, false
+		}
+		m := mark{stamp: stamp, files: n, ok: !fresh}
+		old, had := st.Folders[key]
+		return m, had && !spec.Full && old.Stamp == stamp && spec.Now.Sub(old.CheckedAt) < fullCheckEvery
+	}
+	record := func(key string, m mark) {
+		if !remember || !m.ok {
+			return
+		}
+		now := time.Now().UTC()
+		st.Folders[key] = folderStamp{Stamp: m.stamp, Files: m.files, SyncedAt: now, CheckedAt: now}
+		_ = st.save(spec.StateFile)
+	}
+
 	if len(folders) < minFoldersToSplit {
+		m, skip := check(wholeJob, "")
+		if skip {
+			return RunResult{Unchanged: 1}
+		}
 		ci.BackupDir = archive
 		res, _ := syncPart(ctx, spec, fsrc, fdst, mirror, 0, 0)
+		if res.Err == nil {
+			record(wholeJob, m)
+		}
 		return res
 	}
 
 	steps := len(folders) + 1
 	var firstErr *RunResult
+	unchanged := 0
 	seen := 0 // destination files checked so far, for the top-level part's guard
 	for i, f := range folders {
 		if ctx.Err() != nil {
 			return RunResult{Err: ctx.Err()}
 		}
 		ph.set(f, i+1, steps)
+		m, skip := check(f, f)
+		if skip {
+			seen += st.Folders[f].Files
+			unchanged++
+			continue
+		}
 		fs1, err := fs.NewFs(ctx, joinFs(srcS, f))
 		if err != nil {
 			if firstErr == nil {
@@ -241,6 +291,9 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 		}
 		res, total := syncPart(ctx, spec, fs1, fd1, mirror, 20, 0)
 		seen += total
+		if res.Err == nil {
+			record(f, m)
+		}
 		if res.Err != nil {
 			res.Err = fmt.Errorf("%s: %w", f, res.Err)
 			if res.Fail == FailMaxDelete {
@@ -268,13 +321,28 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 	ci.BackupDir = archive
 	last, _ := syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 0, seen)
 	ph.set("", 0, 0)
+	if remember {
+		// Forget folders that are gone or no longer synced on their own.
+		keep := map[string]bool{}
+		for _, f := range folders {
+			keep[f] = true
+		}
+		for k := range st.Folders {
+			if !keep[k] {
+				delete(st.Folders, k)
+			}
+		}
+		_ = st.save(spec.StateFile)
+	}
 	if last.Err != nil && (last.Fail == FailMaxDelete || firstErr == nil) {
+		last.Unchanged = unchanged
 		return last
 	}
 	if firstErr != nil {
+		firstErr.Unchanged = unchanged
 		return *firstErr
 	}
-	return RunResult{}
+	return RunResult{Unchanged: unchanged}
 }
 
 // syncPart runs one rclone sync/copy, guarded by the max-delete check.

@@ -376,3 +376,62 @@ func TestUploadIntoEmptyDestination(t *testing.T) {
 		t.Error("exclusions still apply when the destination is empty")
 	}
 }
+
+func TestSkipUnchangedFolders(t *testing.T) {
+	base := shortDir(t)
+	local, remote := filepath.Join(base, "l"), filepath.Join(base, "r")
+	write(t, local, "top.txt", "t")
+	write(t, local, "one/a.txt", "a")
+	write(t, local, "two/b.txt", "b")
+	write(t, local, "two/node_modules/x.js", "x")
+	j := job(local, remote, model.DirUpload, model.DeleteMirror, model.ConflictNewer)
+	sp := spec(t, j)
+	sp.StateFile = filepath.Join(base, "state.json")
+	mustRun(t, sp)
+
+	// Cloud-side change the skip can't see: a quick run leaves it alone.
+	write(t, remote, "one/a.txt", "changed in cloud")
+	// Excluded folders don't count as changes.
+	write(t, local, "two/node_modules/y.js", "y")
+	sp.RunID += "b"
+	res := mustRun(t, sp)
+	if res.Unchanged != 2 {
+		t.Fatalf("unchanged = %d, want 2", res.Unchanged)
+	}
+	if got, _ := read(t, remote, "one/a.txt"); got != "changed in cloud" {
+		t.Error("an unchanged folder should be skipped")
+	}
+
+	// A local change in a nested folder brings that folder back.
+	write(t, local, "two/deep/c.txt", "c")
+	sp.RunID += "c"
+	res = mustRun(t, sp)
+	if res.Unchanged != 1 {
+		t.Errorf("unchanged = %d, want 1", res.Unchanged)
+	}
+	if _, ok := read(t, remote, "two/deep/c.txt"); !ok {
+		t.Error("new nested file not uploaded")
+	}
+
+	// A local delete is seen too (the parent folder's time changes).
+	time.Sleep(20 * time.Millisecond)
+	if err := os.Remove(filepath.Join(local, "two", "b.txt")); err != nil {
+		t.Fatal(err)
+	}
+	sp.RunID += "d"
+	mustRun(t, sp)
+	if _, ok := read(t, remote, "two/b.txt"); ok {
+		t.Error("local delete not mirrored")
+	}
+
+	// A full check compares every folder again.
+	sp.RunID += "e"
+	sp.Full = true
+	res = mustRun(t, sp)
+	if res.Unchanged != 0 {
+		t.Errorf("full check skipped %d folder(s)", res.Unchanged)
+	}
+	if got, _ := read(t, remote, "one/a.txt"); got != "a" {
+		t.Error("full check should restore the cloud copy")
+	}
+}

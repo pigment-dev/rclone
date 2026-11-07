@@ -292,3 +292,12 @@ func (c *Compiled) ExplainEntry(rel string, fi os.FileInfo) (bool, *string) {
 	}
 	return true, nil
 }
+
+// MinAge is the minimum file age a run waits for (0 = off).
+func (c *Compiled) MinAge() time.Duration { return c.minAge }
+
+// Signature identifies the rule set: two jobs with the same signature keep
+// and skip exactly the same files.
+func (c *Compiled) Signature() string {
+	return fmt.Sprintf("%q|%d|%d|%q|%v", c.RuleLines(), c.maxSize, c.minAge, c.excludeIfPresent, c.skipSymlinks)
+}

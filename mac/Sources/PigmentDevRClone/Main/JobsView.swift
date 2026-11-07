@@ -184,6 +184,11 @@ struct JobDetailView: View {
                 Spacer()
                 Button { openEditor(.folders) } label: { Label("Edit", systemImage: "slider.horizontal.3") }.pdSecondary()
                 Menu {
+                    if job.direction == .upload && status.state != .running {
+                        Button("Check every folder now") { Task { await model.run(jobID, full: true) } }
+                            .help(L("Normal syncs skip folders that haven't changed on this Mac since they last synced. This compares every folder with the cloud."))
+                        Divider()
+                    }
                     Button("Show folder in Finder") { NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: job.localPath) }
                     Button("Open in the cloud") { openRemote(job, account) }
                     Button("Copy remote path") {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.9] - 2026-11-07
+
+### Added
+
+- Upload jobs remember each folder they finished syncing. On the next run, a folder that hasn't changed on this Mac since then is skipped: no listing of the cloud side, no comparing. rClone checks only the local folder's modification times, file count and size, and doesn't walk excluded folders such as `node_modules` or `.git`. A large job where little changed now takes seconds instead of re-checking every folder.
+- Every folder still gets a full check at least once a week, to catch changes made in the cloud. **Check every folder now** in a job's ⋯ menu runs one straight away.
+- Nothing is written inside your folders: the record lives in rClone's data folder and resets when you change the job's destination, delete policy or exclusions.
+
 ## [1.0.0-beta.8] - 2026-10-27
 
 ### Changed

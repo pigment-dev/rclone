@@ -25,6 +25,7 @@ type runReq struct {
 	DryRun bool
 	Resync bool
 	Force  bool
+	Full   bool // check every folder, even ones unchanged since their last sync
 	Manual bool
 	Files  []string // nil = full run
 	Reason string
@@ -42,6 +43,7 @@ func merge(a, b *runReq) *runReq {
 	out.DryRun = a.DryRun && b.DryRun
 	out.Resync = a.Resync || b.Resync
 	out.Force = a.Force || b.Force
+	out.Full = a.Full || b.Full
 	out.Manual = a.Manual || b.Manual
 	if a.Files == nil || b.Files == nil {
 		out.Files = nil
@@ -262,6 +264,9 @@ func (d *Daemon) startLocked(rt *jobRT, req runReq) {
 		Force:   req.Force,
 		Files:   req.Files,
 		Now:     time.Now(),
+		// Remembers which folders finished syncing so unchanged ones are skipped.
+		StateFile: filepath.Join(d.opt.Paths.DataDir, "synced", j.ID+".json"),
+		Full:      req.Full,
 	}
 	started := rt.run.started
 	d.wg.Add(1)
@@ -291,6 +296,8 @@ func (d *Daemon) execute(ctx context.Context, spec engine.RunSpec, req runReq) e
 		kind = "two-way baseline (resync)"
 	case req.Files != nil:
 		kind = fmt.Sprintf("quick sync of %d changed file(s)", len(req.Files))
+	case req.Full:
+		kind = "full check of every folder"
 	}
 	if req.DryRun {
 		kind = "dry run"
@@ -313,6 +320,9 @@ func (d *Daemon) finish(j model.Job, req runReq, started time.Time, res engine.R
 		d.health(false, "history database write failed: "+err.Error())
 	}
 	if res.Err == nil {
+		if res.Unchanged > 0 {
+			d.logf("info", &jid, &rid, "Skipped %d folder(s) with no changes since their last sync", res.Unchanged)
+		}
 		d.logf("notice", &jid, &rid, "Finished %q: %d file(s), %s, %d deleted, %d conflict(s) in %s", j.Name, res.Files, humanBytes(res.Bytes), res.Deletes, len(res.Conflicts), ended.Sub(started).Round(time.Second))
 	} else if res.Fail != engine.FailCancelled {
 		d.logf("error", &jid, &rid, "Failed %q: %v", j.Name, res.Err)

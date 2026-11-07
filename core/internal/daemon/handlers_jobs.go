@@ -68,12 +68,13 @@ func (d *Daemon) registerJobHandlers() {
 		ID     string `json:"id"`
 		DryRun bool   `json:"dryRun"`
 		Resync bool   `json:"resync"`
+		Full   bool   `json:"full"`
 	}) (any, error) {
 		reason := "started manually"
 		if p.Resync {
 			reason = "baseline requested"
 		}
-		id, err := d.TriggerRun(p.ID, runReq{Manual: true, DryRun: p.DryRun, Resync: p.Resync, Reason: reason})
+		id, err := d.TriggerRun(p.ID, runReq{Manual: true, DryRun: p.DryRun, Resync: p.Resync, Full: p.Full, Reason: reason})
 		if err != nil {
 			return nil, err
 		}
@@ -232,6 +233,7 @@ func (d *Daemon) deleteJob(id string) {
 	d.mu.Unlock()
 	_ = d.cfg.DeleteJob(id)
 	_ = os.RemoveAll(filepath.Join(d.opt.Paths.DataDir, "bisync", id))
+	_ = os.Remove(filepath.Join(d.opt.Paths.DataDir, "synced", id+".json"))
 	d.reschedule()
 }
 
