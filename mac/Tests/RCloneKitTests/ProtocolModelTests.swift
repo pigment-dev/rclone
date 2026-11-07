@@ -156,7 +156,7 @@ final class ProtocolModelTests: XCTestCase {
 
     func testExplainRunPauseParams() throws {
         _ = try roundTrip(ExplainResult.self, #"{"included":false,"rule":"- node_modules/**"}"#)
-        XCTAssertEqual(String(data: try JSONEncoder.rpc.encode(RunJobParams(id: "j", dryRun: true)), encoding: .utf8)!, #"{"dryRun":true,"id":"j","resync":false}"#)
+        XCTAssertEqual(String(data: try JSONEncoder.rpc.encode(RunJobParams(id: "j", dryRun: true)), encoding: .utf8)!, #"{"dryRun":true,"full":false,"id":"j","resync":false}"#)
         XCTAssertEqual(String(data: try JSONEncoder.rpc.encode(PauseAllParams(untilSec: nil)), encoding: .utf8)!, #"{"untilSec":null}"#)
         XCTAssertEqual(String(data: try JSONEncoder.rpc.encode(PauseAllParams(untilSec: 3600)), encoding: .utf8)!, #"{"untilSec":3600}"#)
     }
