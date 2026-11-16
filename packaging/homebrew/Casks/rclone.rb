@@ -1,6 +1,6 @@
 cask "rclone" do
-  version "1.0.0-beta.9"
-  sha256 "5eb40cb1f2c99f7c6c898eb0f9cfc1f5dca284afc4b6725ebc738bd7fc41b11c"
+  version "1.0.0-beta.13"
+  sha256 "b8792cbfa81f07d1152fe7c3156dcf780cf248be2fc715eb571d2b87deeb1820"
 
   url "https://github.com/pigment-dev/rclone/releases/download/v#{version}/PigmentDev-rClone.dmg"
   name "PigmentDev rClone"
