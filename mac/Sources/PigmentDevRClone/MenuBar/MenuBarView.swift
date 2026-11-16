@@ -29,6 +29,8 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 380)
+        // No focus ring on the first button when the popover opens.
+        .focusEffectDisabled()
     }
 
     private var header: some View {
