@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -456,5 +456,32 @@ func TestMaxDeleteInOneFolderDoesNotBlockOthers(t *testing.T) {
 	}
 	if _, ok := read(t, remote, "b/one.txt"); !ok {
 		t.Error("other folders should still sync")
+	}
+}
+
+func TestUploadOnlyChangedFolders(t *testing.T) {
+	base := shortDir(t)
+	local, remote := filepath.Join(base, "l"), filepath.Join(base, "r")
+	write(t, local, "a/1.txt", "1")
+	write(t, local, "b/2.txt", "2")
+	write(t, local, "c/3.txt", "3")
+	j := job(local, remote, model.DirUpload, model.DeleteMirror, model.ConflictNewer)
+	mustRun(t, spec(t, j))
+	// b changes and c is removed; a has a cloud-only extra that a scoped
+	// run must not touch.
+	write(t, remote, "a/extra.txt", "x")
+	_ = os.Remove(filepath.Join(local, "b", "2.txt"))
+	_ = os.RemoveAll(filepath.Join(local, "c"))
+	sp := spec(t, j)
+	sp.Folders = []string{"b", "c"}
+	mustRun(t, sp)
+	if _, ok := read(t, remote, "b/2.txt"); ok {
+		t.Error("delete in b not mirrored")
+	}
+	if _, ok := read(t, remote, "c/3.txt"); ok {
+		t.Error("removed folder c should go from the cloud")
+	}
+	if _, ok := read(t, remote, "a/extra.txt"); !ok {
+		t.Error("folder a is out of scope and must be left alone")
 	}
 }

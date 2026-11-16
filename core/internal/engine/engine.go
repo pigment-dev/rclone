@@ -28,6 +28,9 @@ type RunSpec struct {
 	// unchanged ones are skipped next time. Empty = always check everything.
 	StateFile string
 	Full      bool // check every folder, even unchanged ones
+	// Folders limits a folder-by-folder upload to these top-level folders
+	// ("" = the top level itself). nil = all of them.
+	Folders []string
 }
 
 // Conflict is a two-way conflict where both copies were kept.

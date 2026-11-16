@@ -29,6 +29,7 @@ type Change struct {
 	Paths    []string // relative slash paths of created/modified files
 	Removed  bool     // something was deleted or renamed away
 	Overflow bool     // too many events / watch limits: do a full run
+	Gone     []string // relative slash paths that were deleted or renamed away
 }
 
 // Handler receives debounced changes.
@@ -49,6 +50,7 @@ type jobWatch struct {
 	mu      sync.Mutex
 	pending map[string]struct{}
 	removed bool
+	gone    map[string]struct{}
 	over    bool
 	timer   *time.Timer
 	dirs    int
@@ -78,7 +80,7 @@ func (w *Watcher) Set(j Job) error {
 	if j.Debounce <= 0 {
 		j.Debounce = 10 * time.Second
 	}
-	jw := &jobWatch{Job: j, fw: fw, handler: w.handler, pending: map[string]struct{}{}, done: make(chan struct{})}
+	jw := &jobWatch{Job: j, fw: fw, handler: w.handler, pending: map[string]struct{}{}, gone: map[string]struct{}{}, done: make(chan struct{})}
 	if err := jw.addTree(j.Root, false); err != nil {
 		_ = fw.Close()
 		return err
@@ -231,6 +233,7 @@ func (jw *jobWatch) handle(ev fsnotify.Event) {
 		}
 		jw.mu.Lock()
 		jw.removed = true
+		jw.gone[rel] = struct{}{}
 		delete(jw.pending, rel)
 		jw.mu.Unlock()
 	case ev.Has(fsnotify.Create) || ev.Has(fsnotify.Write):
@@ -284,8 +287,12 @@ func (jw *jobWatch) fire() {
 		for p := range jw.pending {
 			c.Paths = append(c.Paths, p)
 		}
+		for p := range jw.gone {
+			c.Gone = append(c.Gone, p)
+		}
 	}
 	jw.pending = map[string]struct{}{}
+	jw.gone = map[string]struct{}{}
 	jw.removed, jw.over = false, false
 	jw.mu.Unlock()
 	select {

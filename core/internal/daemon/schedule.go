@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/pigment-dev/rclone/core/internal/filters"
@@ -136,6 +138,10 @@ func (d *Daemon) onChange(id string, c watch.Change) {
 	req := runReq{Reason: "files changed"}
 	if j.Direction == model.DirUpload && !c.Overflow && !(c.Removed && j.DeletePolicy != model.DeleteNever) && len(c.Paths) > 0 {
 		req.Files = c.Paths
+	} else if j.Direction == model.DirUpload && !c.Overflow && c.Removed {
+		// Something was deleted: sync only the top-level folders it
+		// happened in, not the whole job.
+		req.Folders = topLevel(append(append([]string(nil), c.Paths...), c.Gone...))
 	}
 	if j.Direction == model.DirUpload && len(c.Paths) == 0 && c.Removed && j.DeletePolicy == model.DeleteNever {
 		return // deletions are never propagated for this job
@@ -216,4 +222,24 @@ func (d *Daemon) SetSystemState(st model.SystemState) { d.setSystemState(st) }
 // RunNow starts a manual run (demo loop, CLI helpers).
 func (d *Daemon) RunNow(jobID, reason string) (string, error) {
 	return d.TriggerRun(jobID, runReq{Manual: true, Reason: reason})
+}
+
+// topLevel maps changed paths to the parts of a folder-by-folder run that
+// cover them: a top-level folder's name, or "" for the top level itself
+// (files there, or a top-level entry that was removed).
+func topLevel(paths []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range paths {
+		part := ""
+		if i := strings.IndexByte(p, '/'); i > 0 {
+			part = p[:i]
+		}
+		if !seen[part] {
+			seen[part] = true
+			out = append(out, part)
+		}
+	}
+	slices.Sort(out)
+	return out
 }

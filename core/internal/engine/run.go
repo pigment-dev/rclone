@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -257,11 +258,30 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 		return res
 	}
 
-	steps := len(folders) + 1
+	// A run limited to some folders (after a delete) only syncs those; the
+	// top level runs when asked for, or when a named folder no longer exists
+	// here (it was removed, so the top level must remove it in the cloud).
+	todo, rootPart := folders, true
+	seen := 0 // destination files checked so far, for the top-level part's guard
+	if spec.Folders != nil {
+		todo, rootPart = nil, false
+		for _, f := range folders {
+			if slices.Contains(spec.Folders, f) {
+				todo = append(todo, f)
+			} else if remember {
+				seen += st.Folders[f].Files
+			}
+		}
+		for _, f := range spec.Folders {
+			if f == "" || !slices.Contains(folders, f) {
+				rootPart = true
+			}
+		}
+	}
+	steps := len(todo) + 1 // the last step is the top level
 	var firstErr, maxDel *RunResult
 	unchanged := 0
-	seen := 0 // destination files checked so far, for the top-level part's guard
-	for i, f := range folders {
+	for i, f := range todo {
 		if ctx.Err() != nil {
 			return RunResult{Err: ctx.Err()}
 		}
@@ -313,18 +333,21 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 	// top level the source doesn't have (mirror removes those, e.g. a folder
 	// deleted or renamed on this side). Its deletion guard is measured against
 	// the whole job, not just this part.
-	ph.set("", steps, steps)
-	rootFi, err := spec.Filter.Rclone(true)
-	if err != nil {
-		return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
-	}
-	for _, f := range folders {
-		if err := rootFi.AddRule("- /" + globEscape(f) + "/**"); err != nil {
+	var last RunResult
+	if rootPart {
+		ph.set("", steps, steps)
+		rootFi, err := spec.Filter.Rclone(true)
+		if err != nil {
 			return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
 		}
+		for _, f := range folders {
+			if err := rootFi.AddRule("- /" + globEscape(f) + "/**"); err != nil {
+				return RunResult{Err: fmt.Errorf("filters: %w", err), Fail: FailOther}
+			}
+		}
+		ci.BackupDir = archive
+		last, _ = syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 0, seen)
 	}
-	ci.BackupDir = archive
-	last, _ := syncPart(filter.ReplaceConfig(ctx, rootFi), spec, fsrc, fdst, mirror, 0, seen)
 	ph.set("", 0, 0)
 	if remember {
 		// Forget folders that are gone or no longer synced on their own.

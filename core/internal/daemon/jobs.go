@@ -28,7 +28,10 @@ type runReq struct {
 	Full   bool // check every folder, even ones unchanged since their last sync
 	Manual bool
 	Files  []string // nil = full run
-	Reason string
+	// Folders limits a run to these top-level folders ("" = the top level
+	// itself). nil = every folder.
+	Folders []string
+	Reason  string
 }
 
 // merge combines two pending requests into one run.
@@ -45,6 +48,14 @@ func merge(a, b *runReq) *runReq {
 	out.Force = a.Force || b.Force
 	out.Full = a.Full || b.Full
 	out.Manual = a.Manual || b.Manual
+	switch {
+	case a.Folders == nil || b.Folders == nil:
+		out.Folders = nil
+	default:
+		out.Folders = append(append([]string(nil), a.Folders...), b.Folders...)
+		slices.Sort(out.Folders)
+		out.Folders = slices.Compact(out.Folders)
+	}
 	if a.Files == nil || b.Files == nil {
 		out.Files = nil
 	} else {
@@ -267,6 +278,7 @@ func (d *Daemon) startLocked(rt *jobRT, req runReq) {
 		// Remembers which folders finished syncing so unchanged ones are skipped.
 		StateFile: filepath.Join(d.opt.Paths.DataDir, "synced", j.ID+".json"),
 		Full:      req.Full,
+		Folders:   req.Folders,
 	}
 	started := rt.run.started
 	d.wg.Add(1)
@@ -298,6 +310,8 @@ func (d *Daemon) execute(ctx context.Context, spec engine.RunSpec, req runReq) e
 		kind = fmt.Sprintf("quick sync of %d changed file(s)", len(req.Files))
 	case req.Full:
 		kind = "full check of every folder"
+	case req.Folders != nil:
+		kind = fmt.Sprintf("sync of %d changed folder(s)", len(req.Folders))
 	}
 	if req.DryRun {
 		kind = "dry run"
@@ -332,7 +346,7 @@ func (d *Daemon) finish(j model.Job, req runReq, started time.Time, res engine.R
 
 	// Persistent runtime updates.
 	_ = d.cfg.UpdateRuntime(jid, func(r *config.JobRuntime) {
-		if req.Files == nil && !req.DryRun {
+		if req.Files == nil && req.Folders == nil && !req.DryRun {
 			r.LastFullAttempt = started.UTC().Format(time.RFC3339)
 		}
 		if res.Err == nil {
@@ -340,7 +354,7 @@ func (d *Daemon) finish(j model.Job, req runReq, started time.Time, res engine.R
 			if req.Resync {
 				r.NeedsBaseline = false
 			}
-			if req.Files == nil && !req.DryRun {
+			if req.Files == nil && req.Folders == nil && !req.DryRun {
 				r.LastFullReconcile = ended.Format(time.RFC3339)
 			}
 		}

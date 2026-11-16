@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.11] - 2026-11-16
+
+### Changed
+
+- When you delete or rename something in a job that syncs on change, rClone now syncs only the top-level folders where it happened, not the whole job. In a folder with hundreds of projects, deleting one file used to start a full run over every project.
+
 ## [1.0.0-beta.10] - 2026-11-16
 
 ### Fixed
