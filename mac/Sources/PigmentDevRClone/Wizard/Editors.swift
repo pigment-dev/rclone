@@ -330,8 +330,17 @@ struct DirectionEditor: View {
             }
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel("Safety")
-                Stepper(value: $job.safety.maxDeletePercent, in: 0...100, step: 5) {
-                    Text("Stop and ask if a run would delete more than \(job.safety.maxDeletePercent)% of files").font(PDFont.text(13))
+                // 100% means off: the daemon only checks below 100.
+                Toggle("Stop and ask before deleting many files", isOn: Binding(
+                    get: { job.safety.maxDeletePercent < 100 },
+                    set: { job.safety.maxDeletePercent = $0 ? 25 : 100 }))
+                if job.safety.maxDeletePercent < 100 {
+                    Stepper(value: $job.safety.maxDeletePercent, in: 5...95, step: 5) {
+                        Text("Ask when a run would delete more than \(job.safety.maxDeletePercent)% of the files").font(PDFont.text(13))
+                    }
+                    .padding(.leading, 4)
+                } else {
+                    Text("Off: deletions run without asking, however many there are.").font(PDFont.text(12)).foregroundStyle(Theme.textMuted)
                 }
                 Toggle("Show a dry-run preview before the first real run", isOn: $job.safety.dryRunFirst)
                 Toggle("Compare checksums (slower, catches silent corruption)", isOn: $job.safety.checksum)

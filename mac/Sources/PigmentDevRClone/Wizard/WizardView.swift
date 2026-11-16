@@ -451,7 +451,7 @@ struct PreviewPanel: View {
                 }
                 .pdGlassContainer(spacing: 12)
                 summary(r)
-                if r.deletes > 0, job.safety.maxDeletePercent > 0 {
+                if r.deletes > 0, job.safety.maxDeletePercent > 0, job.safety.maxDeletePercent < 100 {
                     Label("Deletions are guarded: a run that would delete more than \(job.safety.maxDeletePercent)% of files stops and asks first.", systemImage: "shield.lefthalf.filled")
                         .font(PDFont.text(12)).foregroundStyle(Theme.textSecondary)
                 }

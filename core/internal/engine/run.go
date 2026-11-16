@@ -95,6 +95,11 @@ func runContext(ctx context.Context, spec RunSpec) (context.Context, *fs.ConfigI
 	ci.DryRun = spec.DryRun
 	ci.MaxDelete = -1
 	ci.SuffixKeepExtension = true
+	// List the cloud side recursively where the backend can (Google Drive,
+	// S3, B2, …): a few big queries instead of one per folder. For a mirror
+	// of a tree with thousands of folders this is the slow part of a run.
+	// Backends without it ignore the flag.
+	ci.UseListR = true
 	if spec.Files != nil {
 		ci.NoTraverse = true
 	}

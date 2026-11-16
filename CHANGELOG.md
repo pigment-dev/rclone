@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.12] - 2026-11-16
+
+### Changed
+
+- Faster mirror runs to Google Drive, S3, B2 and other clouds that can list a whole folder tree at once: rClone now lists the cloud side in a few large requests instead of one per folder. Finding what to delete in a tree with thousands of folders was the slow part of an upload job with deletions on.
+- The deletion check can be turned off. Under **Safety**, switch off **Stop and ask before deleting many files**; when it's on, choose the limit from 5% to 95%.
+- The menu bar popover now hangs from the icon with an arrow, like the system's own menu bar popovers. The gear button opens Settings in the main window.
+
 ## [1.0.0-beta.11] - 2026-11-16
 
 ### Changed

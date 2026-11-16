@@ -1,11 +1,10 @@
 import RCloneKit
 import SwiftUI
 
-/// The `.window`-style MenuBarExtra popover.
+/// The menu bar popover (shown by StatusItemController).
 struct MenuBarView: View {
     @Environment(AppModel.self) private var model
     @Environment(Router.self) private var router
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -30,7 +29,6 @@ struct MenuBarView: View {
         }
         .padding(16)
         .frame(width: 380)
-        .onAppear { router.openMainWindow = { openWindow(id: "main") } }
     }
 
     private var header: some View {
@@ -118,10 +116,9 @@ struct MenuBarView: View {
                 .disabled(!model.isConnected)
             }
             Spacer()
-            SettingsLink { Image(systemName: "gearshape") }
+            Button { open(.settings) } label: { Image(systemName: "gearshape") }
                 .pdSecondary(large: false)
                 .help("Settings")
-                .simultaneousGesture(TapGesture().onEnded { Self.closePopover(); NSApp.activate(ignoringOtherApps: true) })
             Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
                 .pdSecondary(large: false)
                 .help("Quit PigmentDev rClone")
@@ -132,14 +129,14 @@ struct MenuBarView: View {
         router.selection = item
         if let job { router.selectedJobID = job }
         Self.closePopover()
-        openWindow(id: "main")
+        router.openMainWindow?()
         NSApp.activate(ignoringOtherApps: true)
+        // The window may be closed (not just hidden): bring it back.
+        for w in NSApp.windows where w.identifier?.rawValue.hasPrefix("main") == true { w.makeKeyAndOrderFront(nil) }
     }
 
-    /// Closes the menu bar popover (MenuBarExtra's window) when an action moves to another window.
+    /// Closes the menu bar popover when an action moves to another window.
     static func closePopover() {
-        for w in NSApp.windows where w.isVisible && String(describing: type(of: w)).contains("MenuBarExtra") {
-            w.close()
-        }
+        StatusItemController.shared.close()
     }
 }

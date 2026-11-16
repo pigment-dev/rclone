@@ -85,17 +85,6 @@ struct PigmentDevRCloneApp: App {
             }
         }
 
-        MenuBarExtra(isInserted: Binding(get: { env.prefs.showMenuBarIcon }, set: { env.prefs.showMenuBarIcon = $0 })) {
-            MenuBarView()
-                .environment(env.model)
-                .environment(env.prefs)
-                .environment(env.router)
-                .environment(\.layoutDirection, env.prefs.layoutDirection)
-        } label: {
-            MenuBarLabel(icon: env.icon, router: env.router)
-        }
-        .menuBarExtraStyle(.window)
-
         Settings {
             SettingsView()
                 .environment(env.model)
@@ -104,21 +93,6 @@ struct PigmentDevRCloneApp: App {
                 .environment(\.layoutDirection, env.prefs.layoutDirection)
                 .frame(width: 720, height: 600)
         }
-    }
-}
-
-/// The menu bar label. Also captures `openWindow` so non-view code (URL scheme, intents) can open the window.
-struct MenuBarLabel: View {
-    var icon: MenuIconController
-    var router: Router
-    @Environment(\.openWindow) private var openWindow
-
-    var body: some View {
-        Image(nsImage: icon.image)
-            .accessibilityLabel(icon.accessibilityLabel)
-            .onAppear {
-                router.openMainWindow = { openWindow(id: "main") }
-            }
     }
 }
 
@@ -137,6 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated {
             let env = AppEnvironment.shared
             env.prefs.applyActivationPolicy()
+            StatusItemController.shared.start()
             env.prefs.applyAppearance()
             env.notifier.setUp()
             if env.prefs.autoCheckUpdates { env.updater.startAutomaticChecks(channel: env.prefs.updateChannel) }
