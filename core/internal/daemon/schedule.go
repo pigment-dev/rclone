@@ -35,11 +35,20 @@ func (d *Daemon) nextDueLocked(rt *jobRT, j model.Job) (*time.Time, string) {
 	if rt.lastRun != nil && !rt.lastRun.DryRun {
 		anchor = rt.lastRun.StartedAt
 	}
+	// A run that was stopped or failed still counts: don't start another
+	// one straight away (errors have their own retry with backoff).
+	attempt, attemptErr := time.Parse(time.RFC3339, r.LastFullAttempt)
+	if attemptErr == nil && attempt.After(anchor) {
+		anchor = attempt
+	}
 	consider(sched.Next(j.Triggers, anchor, time.Now()), "schedule")
 	if j.Triggers.OnChange && j.Direction == model.DirUpload {
 		last := j.CreatedAt
 		if t, err := time.Parse(time.RFC3339, r.LastFullReconcile); err == nil {
 			last = t
+		}
+		if attemptErr == nil && attempt.After(last) {
+			last = attempt
 		}
 		next := last.Add(ReconcileEvery).UTC()
 		consider(&next, "periodic full reconcile")

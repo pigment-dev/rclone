@@ -332,6 +332,9 @@ func (d *Daemon) finish(j model.Job, req runReq, started time.Time, res engine.R
 
 	// Persistent runtime updates.
 	_ = d.cfg.UpdateRuntime(jid, func(r *config.JobRuntime) {
+		if req.Files == nil && !req.DryRun {
+			r.LastFullAttempt = started.UTC().Format(time.RFC3339)
+		}
 		if res.Err == nil {
 			r.PreviewDone = true
 			if req.Resync {

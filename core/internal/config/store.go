@@ -13,6 +13,10 @@ type JobRuntime struct {
 	NeedsBaseline     bool   `json:"needsBaseline,omitempty"`
 	PreviewDone       bool   `json:"previewDone,omitempty"`
 	LastFullReconcile string `json:"lastFullReconcile,omitempty"`
+	// LastFullAttempt is when the last full run started, whatever its
+	// outcome (stopped, failed or done). Automatic runs count from here, so
+	// stopping or failing a run doesn't start a new one straight away.
+	LastFullAttempt string `json:"lastFullAttempt,omitempty"`
 }
 
 type jobsFile struct {

@@ -258,7 +258,7 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 	}
 
 	steps := len(folders) + 1
-	var firstErr *RunResult
+	var firstErr, maxDel *RunResult
 	unchanged := 0
 	seen := 0 // destination files checked so far, for the top-level part's guard
 	for i, f := range folders {
@@ -296,8 +296,13 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 		}
 		if res.Err != nil {
 			res.Err = fmt.Errorf("%s: %w", f, res.Err)
+			// A folder that would lose too many files is left alone; the
+			// other folders still sync. The run reports it at the end.
 			if res.Fail == FailMaxDelete {
-				return res
+				if maxDel == nil {
+					maxDel = &res
+				}
+				continue
 			}
 			if firstErr == nil {
 				firstErr = &res
@@ -333,6 +338,10 @@ func (r *Rclone) oneWay(ctx context.Context, spec RunSpec, ph *runPhase) RunResu
 			}
 		}
 		_ = st.save(spec.StateFile)
+	}
+	if maxDel != nil && last.Fail != FailMaxDelete {
+		maxDel.Unchanged = unchanged
+		return *maxDel
 	}
 	if last.Err != nil && (last.Fail == FailMaxDelete || firstErr == nil) {
 		last.Unchanged = unchanged

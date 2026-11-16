@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.10] - 2026-11-16
+
+### Fixed
+
+- **Stop** now stops. A stopped run counted as "never synced", so a job that syncs on change started a new full run a moment later, which looked as if Stop did nothing. Stopped and failed runs now count as an attempt: the next automatic run waits for its normal time, and errors keep their own retry with backoff.
+- A folder that would lose too many files no longer stops the whole job. rClone leaves that folder alone, syncs the other folders, and reports the folder in the Action Center at the end. Before, a job that tripped the guard in one folder restarted and stopped at the same folder again and again.
+
 ## [1.0.0-beta.9] - 2026-11-07
 
 ### Added

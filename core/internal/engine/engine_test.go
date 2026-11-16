@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"strconv"
 	"testing"
 	"time"
 
@@ -433,5 +434,27 @@ func TestSkipUnchangedFolders(t *testing.T) {
 	}
 	if got, _ := read(t, remote, "one/a.txt"); got != "a" {
 		t.Error("full check should restore the cloud copy")
+	}
+}
+
+func TestMaxDeleteInOneFolderDoesNotBlockOthers(t *testing.T) {
+	base := shortDir(t)
+	local, remote := filepath.Join(base, "l"), filepath.Join(base, "r")
+	write(t, local, "a/keep.txt", "k")
+	write(t, local, "b/one.txt", "1")
+	for i := range 30 {
+		write(t, remote, "a/old"+strconv.Itoa(i)+".txt", "o")
+	}
+	j := job(local, remote, model.DirUpload, model.DeleteMirror, model.ConflictNewer)
+	j.Safety.MaxDeletePercent = 25
+	res := eng.Run(context.Background(), spec(t, j), nil)
+	if res.Fail != FailMaxDelete {
+		t.Fatalf("fail = %q (%v), want maxDelete", res.Fail, res.Err)
+	}
+	if _, ok := read(t, remote, "a/old0.txt"); !ok {
+		t.Error("the guarded folder must be left alone")
+	}
+	if _, ok := read(t, remote, "b/one.txt"); !ok {
+		t.Error("other folders should still sync")
 	}
 }
