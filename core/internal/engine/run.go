@@ -131,6 +131,7 @@ func (r *Rclone) Run(ctx context.Context, spec RunSpec, progress ProgressFn) Run
 		inner := progress
 		progress = func(p model.Progress) {
 			p.Phase, p.Step, p.Steps = ph.get()
+			p.Percent = runPercent(p)
 			inner(p)
 		}
 	}
@@ -159,6 +160,20 @@ func (r *Rclone) Run(ctx context.Context, spec RunSpec, progress ProgressFn) Run
 		r.pruneArchives(ctx, spec)
 	}
 	return res
+}
+
+// runPercent is how far a running run is. Byte counts only cover what has
+// been found so far, so "all found bytes sent" isn't "done": a folder-by-
+// folder run counts finished folders, and a running run never shows 100%.
+func runPercent(p model.Progress) float64 {
+	frac := 0.0
+	if p.TotalBytes > 0 {
+		frac = min(1, float64(p.Bytes)/float64(p.TotalBytes))
+	}
+	if p.Steps > 1 && p.Step > 0 {
+		frac = (float64(p.Step-1) + frac) / float64(p.Steps)
+	}
+	return min(99, frac*100)
 }
 
 // runPhase is the part of a folder-by-folder run that is running now.

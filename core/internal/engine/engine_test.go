@@ -485,3 +485,13 @@ func TestUploadOnlyChangedFolders(t *testing.T) {
 		t.Error("folder a is out of scope and must be left alone")
 	}
 }
+
+func TestRunPercentNeverDoneWhileRunning(t *testing.T) {
+	if got := runPercent(model.Progress{Bytes: 70, TotalBytes: 70}); got != 99 {
+		t.Errorf("all found bytes sent = %v, want 99", got)
+	}
+	// Folder 25 of 188, its bytes all sent: about 13%, not 100%.
+	if got := runPercent(model.Progress{Bytes: 70, TotalBytes: 70, Step: 25, Steps: 188}); got < 13 || got > 14 {
+		t.Errorf("folder 25 of 188 = %v", got)
+	}
+}

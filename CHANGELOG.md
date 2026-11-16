@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-beta.14] - 2026-11-16
+
+### Fixed
+
+- Progress no longer shows 100% while a job is still running. The percentage was "bytes sent of the bytes found so far", which reached 100% as soon as the current folder's uploads finished. A folder-by-folder run now counts finished folders (folder 25 of 188 is about 13%), and a running job never shows more than 99%. The menu bar popover shows "Folder 25 of 188 · name" instead of "70 MB of 70 MB".
+
 ## [1.0.0-beta.13] - 2026-11-16
 
 ### Fixed

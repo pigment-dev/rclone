@@ -157,7 +157,7 @@ struct StatusBar: View {
                     Text(file).font(PDFont.mono(10, .regular)).foregroundStyle(Theme.textMuted).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 8)
-                ProgressTrack(fraction: o.percent / 100, height: 5, indeterminate: o.totalBytes == 0)
+                ProgressTrack(fraction: o.percent / 100, height: 5, indeterminate: o.totalBytes == 0 && job.progress?.partLine == nil)
                     .frame(minWidth: 60, idealWidth: 160, maxWidth: 160)
                 Text([Fmt.percent(o.percent), Fmt.speed(o.speed), o.eta.map { Fmt.eta($0) + " " + L("left") }].compactMap { $0 }.joined(separator: " · "))
                     .font(PDFont.numbers(11)).foregroundStyle(Theme.textSecondary).lineLimit(1).fixedSize()

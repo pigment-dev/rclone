@@ -13,11 +13,18 @@ struct MenuBarView: View {
                 let o = model.overall
                 VStack(alignment: .leading, spacing: 6) {
                     // Until something needs uploading the total is 0 B: show "checking", not "0 B of 0 B".
-                    ProgressTrack(fraction: o.percent / 100, height: 6, indeterminate: o.totalBytes == 0)
+                    // A folder-by-folder run: say which folder, not "X of X" for
+                    // the bytes found so far (that read as done while it wasn't).
+                    let part = model.runningJobs.count == 1 ? model.runningJobs.first?.progress?.partLine : nil
+                    ProgressTrack(fraction: o.percent / 100, height: 6, indeterminate: o.totalBytes == 0 && part == nil)
                     HStack {
-                        Text(o.totalBytes == 0 ? L("Checking for changes…") : Fmt.bytes(o.bytes) + " " + L("of") + " " + Fmt.bytes(o.totalBytes))
+                        if let part {
+                            Text(part).lineLimit(1).truncationMode(.middle)
+                        } else {
+                            Text(o.totalBytes == 0 ? L("Checking for changes…") : Fmt.bytes(o.bytes) + " " + L("of") + " " + Fmt.bytes(o.totalBytes))
+                        }
                         Spacer()
-                        if o.totalBytes > 0 { Text(Fmt.percent(o.percent)) }
+                        if o.totalBytes > 0 || part != nil { Text(Fmt.percent(o.percent)) }
                     }
                     .font(PDFont.numbers(11))
                     .foregroundStyle(Theme.textSecondary)

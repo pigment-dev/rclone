@@ -458,9 +458,12 @@ func (d *Daemon) publishOverallLocked(force bool) {
 		o.Bytes += rt.progress.Bytes
 		o.TotalBytes += rt.progress.TotalBytes
 		o.Speed += rt.progress.Speed
+		o.Percent += rt.progress.Percent
 	}
-	if o.TotalBytes > 0 {
-		o.Percent = min(100, float64(o.Bytes)*100/float64(o.TotalBytes))
+	// The average of the running jobs' own progress, which counts finished
+	// folders and never reaches 100% while a job is still running.
+	if o.Running > 0 {
+		o.Percent /= float64(o.Running)
 	}
 	if o.Speed > 0 && o.TotalBytes > o.Bytes {
 		eta := float64(o.TotalBytes-o.Bytes) / o.Speed
